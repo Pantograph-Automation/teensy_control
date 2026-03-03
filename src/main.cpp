@@ -15,6 +15,7 @@ enum class Status
   TRACKING,
   FINISHED
 };
+using Callback = Status (*)();
 
 enum class Error
 {
@@ -66,7 +67,7 @@ static char serial_buffer[64];
 Setpoint setpoint;
 
 // Active controller callback
-Status (*callback)();
+Callback callback;
 
 void setup()
 {
