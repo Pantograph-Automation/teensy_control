@@ -1,106 +1,215 @@
 #include <AS5600.h>
-#include "control.hpp"
 #include "config.h"
 
 // usbipd list
 // usbipd attach --wsl --busid 2-1
 
-float offset = 0.0f;
+#define SERIAL_BAUD_RATE 115200
 
-const float POS_CMD_MAX_ERROR = 5 * RAD_PER_STEP;
 
-// Encoder E1(E1_A_PIN, E2_B_PIN);
-AS5600 as5600;
-
-// Stepper 1
-Stepper stepper(S1_PULSE_PIN, S1_ENABLE_PIN, S1_DIR_PIN);
-
-Controller controller(stepper);
-
-uint32_t clk = 0;
-
-const float desired_position = 1.570796; // 90 degrees
-
-float calibrate(const int sample_size, const unsigned long ms_delay)
+enum class Status
 {
-  float offset_ = 0.0;
+  INACTIVE,
+  CALIBRATING,
+  CALIBRATED,
+  TRACKING,
+  FINISHED
+};
 
-  for (int i = 0; i < sample_size; i++)
-  {
-    offset_ +=  as5600.rawAngle() * AS5600_RAW_TO_RADIANS;
-    delay(ms_delay);
-  }
-  offset_ = offset_ / (float)sample_size;
-  return offset_;
-}
-
-float read_encoder(float offset_)
+enum class Error
 {
+  OK,
+  INVALID_SERIAL,
+  INVALID_SETPOINT,
+  CONTROL_TIMEOUT
+};
 
-  float radians = as5600.rawAngle() * AS5600_RAW_TO_RADIANS - offset_;
+enum class Transition
+{
+  NONE,
+  ACTIVATE,
+  DEACTIVATE
+};
 
-  if (radians < 0)
-  {
-    radians += 2*PI;
-  }
+class Setpoint
+{
+  public:
+    Setpoint::Setpoint(){};
 
-  return radians;
-}
+    Setpoint::Setpoint(
+      float x,
+      float y,
+      float tolerance,
+      float velocity,
+      unsigned long int timeout
+    ) : x(x), y(y), tolerance(tolerance), velocity(velocity), timeout(timeout) {};
+
+    float x;
+    float y;
+    float tolerance;
+    float velocity;
+    unsigned long int timeout;
+
+};
+auto home = Setpoint(0.0, 0.15, 0.01, 0.1, micros() + 30000);
+
+// Lifecycle variables
+Status status = Status::INACTIVE;
+Transition transition = Transition::NONE;
+Error error = Error::OK;
+bool response_due = false;
+
+// IO buffer
+static char serial_buffer[64];
+
+// Actively tracked setpoint
+Setpoint setpoint;
+
+// Active controller callback
+Status (*callback)();
 
 void setup()
 {
-  Serial.begin(11520);
-  Wire.begin();
-  Wire.setClock(400000);
+  Serial.begin(SERIAL_BAUD_RATE);
+  while(!Serial);
 
-  as5600.begin(4);  //  set direction pin.
+  callback = inactiveControl;
 
-  as5600.setDirection(AS5600_CLOCK_WISE);  //  default, just be explicit.
-  int b = as5600.isConnected();
-  Serial.print("Connect: ");
-  Serial.println(b);
-
-  stepper.disable();
-  Serial.println("Calibrating...");
-  delay(2000);
-  offset = calibrate(100, 20);
-  Serial.println("Calibrated!! Move the arm.");
-  delay(2000);
-  stepper.enable();
-  
 }
-
 
 void loop()
 {
   
-  // Pulse the stepper motor if required
-  stepper.pulse_if_required(PULSE_WIDTH_US);
+  readSerial();
 
-  // Get the current measured position
-  float current_angle = read_encoder(offset);
-
-  stepper.update_state(current_angle, micros());
-
-
-  /**
-   * Other code goes here
-   */
-
-
-  // Run the PID law to determine whether a step is required
-  Status status = controller.pid(
-    Kp, Ki, Kd,
-    desired_position,
-    V_MAX,
-    ACCEL_MAX,
-    POS_CMD_MAX_ERROR,
-    POS_DEADBAND,
-    RAD_PER_STEP
-  );
-
-  if (status == Status::FINISHED)
+  switch (transition)
   {
-    Serial.println("Finished moving to setpoint!");
+  case Transition::NONE:
+    break;
+  case Transition::ACTIVATE:
+    callback = calibrateControl;
+    break;
+  case Transition::DEACTIVATE:
+    callback = inactiveControl;
   }
+
+  status = callback();
+
+  if(response_due) { respondSerial(); }
+
+}
+
+//
+// Serial interface functions
+//
+
+/**
+ * @brief Parse the serial buffer iff a new message is available
+ */
+void readSerial()
+{
+  serial_buffer[0] = '\0';
+  int index = 0;
+
+  while (Serial.available() > 0) {
+    char incoming = Serial.read();
+
+    if (incoming == '\n') { // Message is complete
+        serial_buffer[index] = '\0'; // Null-terminate the string
+        parseSerial(serial_buffer); 
+        index = 0; // Reset for next message
+    } 
+    else if (index < 63) { // Avoid buffer overflow
+        serial_buffer[index++] = incoming;
+    }
+    }
+}
+
+/**
+ * @brief Parse an incoming serial message
+ * @param message The incoming char buffer
+ */
+void parseSerial(const char* message)
+{
+  response_due = true;
+
+  if (strncmp(message, "ACTIVATE", 8) == 0) {
+    transition = Transition::ACTIVATE;
+  }
+  else if (strncmp(message, "DEACTIVATE", 10) == 0) {
+    transition = Transition::DEACTIVATE;
+    setpoint = Setpoint();
+  }
+  else if (strncmp(message, "SETPOINT", 8) == 0) {
+    float x, y;
+    if (sscanf(message, "SETPOINT %f %f", &x, &y) == 2) {
+      setpoint.x = x; // Update the current setpoint
+      setpoint.y = y;
+    } else {
+      error = Error::INVALID_SETPOINT;
+    }
+  } else { error = Error::INVALID_SERIAL; }
+}
+
+/**
+ * @brief Send a response to the serial buffer based on the current state
+ */
+void respondSerial()
+{
+  if (error == Error::OK) {
+    switch (status)
+    {
+    case Status::INACTIVE:
+      Serial.println("OK INACTIVE");
+      break;
+    case Status::CALIBRATED:
+      Serial.println("OK ACTIVE");
+      break;
+    case Status::FINISHED:
+      Serial.println("OK FINISHED");
+      break;
+    default:
+      Serial.println("ERROR Controller tried to respond while still in a transition state.");
+      break;
+    }
+  }
+  else {
+    switch (error)
+    {
+    case Error::INVALID_SERIAL:
+      Serial.println("ERROR Invalid serial message received.");
+      break;
+    case Error::INVALID_SETPOINT:
+      Serial.println("ERROR Invalid setpoint received.");
+      break;
+    case Error::CONTROL_TIMEOUT:
+      Serial.println("ERROR Control timed out. Collision likely!");
+      break;
+    }
+  }
+
+  response_due = false;
+}
+
+//  
+// Control loop callbacks 
+//
+
+Status activeControl() {
+  delay(500);
+  response_due = true;
+  return Status::FINISHED;
+}
+
+Status calibrateControl() {
+  delay(500);
+  response_due = true;
+  setpoint = home;
+  return Status::CALIBRATED;
+}
+
+Status inactiveControl() {
+  delay(100);
+  response_due = true;
+  return Status::INACTIVE;
 }
