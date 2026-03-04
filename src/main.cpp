@@ -35,9 +35,9 @@ enum class Transition
 class Setpoint
 {
   public:
-    Setpoint::Setpoint(){};
+    Setpoint(){};
 
-    Setpoint::Setpoint(
+    Setpoint(
       float x,
       float y,
       float tolerance,
@@ -69,62 +69,10 @@ Setpoint setpoint;
 // Active controller callback
 Callback callback;
 
-void setup()
-{
-  Serial.begin(SERIAL_BAUD_RATE);
-  while(!Serial);
-
-  callback = inactiveControl;
-
-}
-
-void loop()
-{
-  
-  readSerial();
-
-  switch (transition)
-  {
-  case Transition::NONE:
-    break;
-  case Transition::ACTIVATE:
-    callback = calibrateControl;
-    break;
-  case Transition::DEACTIVATE:
-    callback = inactiveControl;
-  }
-
-  status = callback();
-
-  if(response_due) { respondSerial(); }
-
-}
 
 //
 // Serial interface functions
 //
-
-/**
- * @brief Parse the serial buffer iff a new message is available
- */
-void readSerial()
-{
-  serial_buffer[0] = '\0';
-  int index = 0;
-
-  while (Serial.available() > 0) {
-    char incoming = Serial.read();
-
-    if (incoming == '\n') { // Message is complete
-        serial_buffer[index] = '\0'; // Null-terminate the string
-        parseSerial(serial_buffer); 
-        index = 0; // Reset for next message
-    } 
-    else if (index < 63) { // Avoid buffer overflow
-        serial_buffer[index++] = incoming;
-    }
-    }
-}
 
 /**
  * @brief Parse an incoming serial message
@@ -150,6 +98,28 @@ void parseSerial(const char* message)
       error = Error::INVALID_SETPOINT;
     }
   } else { error = Error::INVALID_SERIAL; }
+}
+
+/**
+ * @brief Parse the serial buffer iff a new message is available
+ */
+void readSerial()
+{
+  serial_buffer[0] = '\0';
+  int index = 0;
+
+  while (Serial.available() > 0) {
+    char incoming = Serial.read();
+
+    if (incoming == '\n') { // Message is complete
+        serial_buffer[index] = '\0'; // Null-terminate the string
+        parseSerial(serial_buffer); 
+        index = 0; // Reset for next message
+    } 
+    else if (index < 63) { // Avoid buffer overflow
+        serial_buffer[index++] = incoming;
+    }
+    }
 }
 
 /**
@@ -198,19 +168,50 @@ void respondSerial()
 
 Status activeControl() {
   delay(500);
-  response_due = true;
+  // response_due = true;
   return Status::FINISHED;
 }
 
 Status calibrateControl() {
   delay(500);
-  response_due = true;
+  // response_due = true;
   setpoint = home;
   return Status::CALIBRATED;
 }
 
 Status inactiveControl() {
   delay(100);
-  response_due = true;
+  // response_due = true;
   return Status::INACTIVE;
+}
+
+void setup()
+{
+  Serial.begin(SERIAL_BAUD_RATE);
+  while(!Serial);
+
+  callback = inactiveControl;
+
+}
+
+void loop()
+{
+  
+  readSerial();
+
+  switch (transition)
+  {
+  case Transition::NONE:
+    break;
+  case Transition::ACTIVATE:
+    callback = calibrateControl;
+    break;
+  case Transition::DEACTIVATE:
+    callback = inactiveControl;
+  }
+
+  status = callback();
+
+  if(response_due) { respondSerial(); }
+
 }
