@@ -1,11 +1,9 @@
-#include <AS5600.h>
-#include "config.h"
+#include "Arduino.h"
 
 // usbipd list
 // usbipd attach --wsl --busid 2-1
 
 #define SERIAL_BAUD_RATE 115200
-
 
 enum class Status
 {
@@ -49,7 +47,7 @@ class Setpoint
     float y;
     float tolerance;
     float velocity;
-    unsigned long int timeout;
+    int timeout;
 
 };
 auto home = Setpoint(0.0, 0.15, 0.01, 0.1, micros() + 30000);
@@ -90,10 +88,12 @@ void parseSerial(const char* message)
     setpoint = Setpoint();
   }
   else if (strncmp(message, "SETPOINT", 8) == 0) {
-    float x, y;
-    if (sscanf(message, "SETPOINT %f %f", &x, &y) == 2) {
-      setpoint.x = x; // Update the current setpoint
-      setpoint.y = y;
+    if (sscanf(message, "SETPOINT %f %f %f %f %d", 
+      &setpoint.x, 
+      &setpoint.x, 
+      &setpoint.tolerance, 
+      &setpoint.velocity,
+      &setpoint.timeout) == 2) {
     } else {
       error = Error::INVALID_SETPOINT;
     }
