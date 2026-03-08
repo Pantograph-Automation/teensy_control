@@ -1,187 +1,33 @@
-#include "Arduino.h"
-
 // usbipd list
 // usbipd attach --wsl --busid 2-1
 
-#define SERIAL_BAUD_RATE 115200
-
-enum class Status
-{
-  INACTIVE,
-  CALIBRATING,
-  CALIBRATED,
-  TRACKING,
-  FINISHED
-};
-using Callback = Status (*)();
-
-enum class Error
-{
-  OK,
-  INVALID_SERIAL,
-  INVALID_SETPOINT,
-  CONTROL_TIMEOUT
-};
-
-enum class Transition
-{
-  NONE,
-  ACTIVATE,
-  DEACTIVATE
-};
-
-class Setpoint
-{
-  public:
-    Setpoint(){};
-
-    Setpoint(
-      float x,
-      float y,
-      float tolerance,
-      float velocity,
-      unsigned long int timeout
-    ) : x(x), y(y), tolerance(tolerance), velocity(velocity), timeout(timeout) {};
-
-    float x;
-    float y;
-    float tolerance;
-    float velocity;
-    int timeout;
-
-};
-auto home = Setpoint(0.0, 0.15, 0.01, 0.1, micros() + 30000);
+#include "lifecycle.hpp"
 
 // Lifecycle variables
 Status status = Status::INACTIVE;
 Transition transition = Transition::NONE;
-Error error = Error::OK;
 bool response_due = false;
+static char serial_buffer[64]; // IO buffer
+Setpoint setpoint; // Actively tracked setpoint
+StatusCallback callback; // Active controller callback
 
-// IO buffer
-static char serial_buffer[64];
+#if defined(ARDUINO)
 
-// Actively tracked setpoint
-Setpoint setpoint;
-
-// Active controller callback
-Callback callback;
-
-
-//
-// Serial interface functions
-//
-
-/**
- * @brief Parse an incoming serial message
- * @param message The incoming char buffer
- */
-void parseSerial(const char* message)
-{
-  response_due = true;
-
-  if (strncmp(message, "ACTIVATE", 8) == 0) {
-    transition = Transition::ACTIVATE;
-  }
-  else if (strncmp(message, "DEACTIVATE", 10) == 0) {
-    transition = Transition::DEACTIVATE;
-    setpoint = Setpoint();
-  }
-  else if (strncmp(message, "SETPOINT", 8) == 0) {
-    if (sscanf(message, "SETPOINT %f %f %f %f %d", 
-      &setpoint.x, 
-      &setpoint.x, 
-      &setpoint.tolerance, 
-      &setpoint.velocity,
-      &setpoint.timeout) == 2) {
-    } else {
-      error = Error::INVALID_SETPOINT;
-    }
-  } else { error = Error::INVALID_SERIAL; }
-}
-
-/**
- * @brief Parse the serial buffer iff a new message is available
- */
-void readSerial()
-{
-  serial_buffer[0] = '\0';
-  int index = 0;
-
-  while (Serial.available() > 0) {
-    char incoming = Serial.read();
-
-    if (incoming == '\n') { // Message is complete
-        serial_buffer[index] = '\0'; // Null-terminate the string
-        parseSerial(serial_buffer); 
-        index = 0; // Reset for next message
-    } 
-    else if (index < 63) { // Avoid buffer overflow
-        serial_buffer[index++] = incoming;
-    }
-    }
-}
-
-/**
- * @brief Send a response to the serial buffer based on the current state
- */
-void respondSerial()
-{
-  if (error == Error::OK) {
-    switch (status)
-    {
-    case Status::INACTIVE:
-      Serial.println("OK INACTIVE");
-      break;
-    case Status::CALIBRATED:
-      Serial.println("OK ACTIVE");
-      break;
-    case Status::FINISHED:
-      Serial.println("OK FINISHED");
-      break;
-    default:
-      Serial.println("ERROR Controller tried to respond while still in a transition state.");
-      break;
-    }
-  }
-  else {
-    switch (error)
-    {
-    case Error::INVALID_SERIAL:
-      Serial.println("ERROR Invalid serial message received.");
-      break;
-    case Error::INVALID_SETPOINT:
-      Serial.println("ERROR Invalid setpoint received.");
-      break;
-    case Error::CONTROL_TIMEOUT:
-      Serial.println("ERROR Control timed out. Collision likely!");
-      break;
-    }
-  }
-
-  response_due = false;
-}
-
-//  
-// Control loop callbacks 
-//
+#include "Arduino.h"
 
 Status activeControl() {
   delay(500);
-  // response_due = true;
   return Status::FINISHED;
 }
 
 Status calibrateControl() {
   delay(500);
-  // response_due = true;
   setpoint = home;
   return Status::CALIBRATED;
 }
 
 Status inactiveControl() {
   delay(100);
-  // response_due = true;
   return Status::INACTIVE;
 }
 
@@ -215,3 +61,12 @@ void loop()
   if(response_due) { respondSerial(); }
 
 }
+
+#else
+
+int main(int argc, char **argv) {
+    // Ghost entry point
+    return 0;
+}
+
+#endif

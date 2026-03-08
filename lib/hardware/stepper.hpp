@@ -41,15 +41,19 @@ class Stepper : public StepperInterface
     }
 
     /**
-     * @brief Execute a blocking (non-realtime) pulse
-     * @param pulse_width The width of the pulse, in microseconds
+     * @brief Write the pulse pin to high
      */
-    inline void blocking_pulse(const unsigned long pulse_width) override
+    inline void set_high() override
     {
       digitalWrite(pulse_pin, HIGH);
-      delayMicroseconds(pulse_width);
+    }
+
+    /**
+     * @brief Write the pulse pin to low
+     */
+    inline void set_low() override
+    {
       digitalWrite(pulse_pin, LOW);
-      delayMicroseconds(pulse_width);
     }
 
   private:
