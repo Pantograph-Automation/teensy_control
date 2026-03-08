@@ -1,7 +1,7 @@
 #pragma once
 
 #include <AS5600.h>
-#include "hardware_interfaces.hpp"
+#include "encoder_interface.hpp"
 
 class Encoder : public EncoderInterface
 {
@@ -18,17 +18,12 @@ class Encoder : public EncoderInterface
      * @brief Initialize the encoder
      * @param timeout How long to wait (milliseconds) for encoder connection before returning
      */
-    inline void begin(unsigned long timeout) override
+    inline void begin() override
     {
       wire->begin();
       wire->setClock(400000);
       as5600.begin(4); //FIXME: Use a non-wired pin
       as5600.setDirection(AS5600_CLOCK_WISE);
-
-      unsigned long start_time = millis();
-      while (!as5600.isConnected()) {
-        if (millis() - start_time > timeout) { return; }
-      }
     }
     
     /**

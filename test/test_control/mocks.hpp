@@ -1,16 +1,17 @@
 // test/test_control/mocks.hpp
 #include <gmock/gmock.h>
-#include "hardware_interfaces.hpp"
+#include "encoder_interface.hpp"
+#include "stepper_interface.hpp"
 
-class MockStepper : public IStepper {
+class MockStepper : public StepperInterface {
 public:
     MOCK_METHOD(void, set_direction_forward, (), (override));
     MOCK_METHOD(void, set_direction_backward, (), (override));
     MOCK_METHOD(void, blocking_pulse, (unsigned long pulse_width), (override));
 };
 
-class MockEncoder : public IEncoder {
+class MockEncoder : public EncoderInterface {
 public:
-    MOCK_METHOD(void, begin, (unsigned long timeout), (override));
+    MOCK_METHOD(void, begin, (), (override));
     MOCK_METHOD(float, read_angle, (), (override));
 };

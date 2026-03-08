@@ -1,31 +1,8 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
-// TEST(...)
-// TEST_F(...)
+TEST(TestJoint, temp_always_passes) {
+    EXPECT_TRUE(true);
 
-#if defined(ARDUINO)
-#include <Arduino.h>
-
-void setup()
-{
-    Serial.begin(115200);
-
-    ::testing::InitGoogleMock();
+    EXPECT_FALSE(false);
 }
-
-void loop()
-{
-  if (RUN_ALL_TESTS());
-  delay(1000);
-}
-
-#else
-int main(int argc, char **argv)
-{
-    ::testing::InitGoogleMock(&argc, argv);
-
-    if (RUN_ALL_TESTS());
-    return 0;
-}
-#endif

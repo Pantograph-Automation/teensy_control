@@ -1,6 +1,7 @@
 #pragma once
 
-#include "hardware_interfaces.hpp"
+#include "encoder_interface.hpp"
+#include "stepper_interface.hpp"
 
 class Joint {
   public:

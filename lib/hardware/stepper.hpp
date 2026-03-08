@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Arduino.h"
-#include "hardware_interfaces.hpp"
+#include "stepper_interface.hpp"
 
 class Stepper : public StepperInterface
 {
