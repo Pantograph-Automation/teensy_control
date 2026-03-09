@@ -2,7 +2,7 @@
 
 class ClockInterface {
   public:
-    virtual ~ClockInterface() {}
+    virtual ~ClockInterface() = default;
     virtual unsigned long milliseconds() = 0;
     virtual unsigned long microseconds() = 0;
 };

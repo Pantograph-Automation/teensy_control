@@ -5,24 +5,21 @@
 
 State state;
 
-#if defined(ARDUINO)
-
-#include "Arduino.h"
-
 Status activeControl() {
-  delay(500);
   return Status::COMPLETE;
 }
 
 Status calibrateControl() {
-  delay(500);
   return Status::COMPLETE;
 }
 
 Status inactiveControl() {
-  delay(100);
   return Status::COMPLETE;
 }
+
+#if defined(ARDUINO)
+
+#include "Arduino.h"
 
 /**
  * @brief Parse an incoming serial message
