@@ -11,4 +11,6 @@ class Clock : public ClockInterface {
 
     inline unsigned long microseconds() override { return micros(); }
 
+    inline void sleep(const unsigned long microseconds) override { delayMicroseconds(microseconds); }
+
 };
