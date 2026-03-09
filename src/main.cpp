@@ -1,110 +1,84 @@
-#include <AS5600.h>
-#include "config.h"
-
 // usbipd list
 // usbipd attach --wsl --busid 2-1
+#if defined(ARDUINO)
 
-#define SERIAL_BAUD_RATE 115200
+#include "Arduino.h"
+#include "lifecycle.hpp"
+#include "clock.hpp"
+#include "encoder.hpp"
+#include "stepper.hpp"
+#include "joint.hpp"
 
+#define PULSE 4
+#define DIR 5
+Clock hw_clock;
+Encoder hw_encoder(&Wire1);
+Stepper hw_stepper(PULSE, DIR);
 
-enum class Status
-{
-  INACTIVE,
-  CALIBRATING,
-  CALIBRATED,
-  TRACKING,
-  FINISHED
-};
-using Callback = Status (*)();
+Joint joint(&hw_stepper, &hw_encoder, &hw_clock);
 
-enum class Error
-{
-  OK,
-  INVALID_SERIAL,
-  INVALID_SETPOINT,
-  CONTROL_TIMEOUT
-};
+State state;
 
-enum class Transition
-{
-  NONE,
-  ACTIVATE,
-  DEACTIVATE
-};
+Status activeControl() {
+  
+  Serial.println(joint._read_position());
+  delay(100);
+  return Status::COMPLETE;
+}
 
-class Setpoint
-{
-  public:
-    Setpoint(){};
+Status calibrateControl() {
+  state.callback = activeControl;
+  return Status::COMPLETE;
+}
 
-    Setpoint(
-      float x,
-      float y,
-      float tolerance,
-      float velocity,
-      unsigned long int timeout
-    ) : x(x), y(y), tolerance(tolerance), velocity(velocity), timeout(timeout) {};
-
-    float x;
-    float y;
-    float tolerance;
-    float velocity;
-    unsigned long int timeout;
-
-};
-auto home = Setpoint(0.0, 0.15, 0.01, 0.1, micros() + 30000);
-
-// Lifecycle variables
-Status status = Status::INACTIVE;
-Transition transition = Transition::NONE;
-Error error = Error::OK;
-bool response_due = false;
-
-// IO buffer
-static char serial_buffer[64];
-
-// Actively tracked setpoint
-Setpoint setpoint;
-
-// Active controller callback
-Callback callback;
-
-
-//
-// Serial interface functions
-//
+Status inactiveControl() {
+  return Status::COMPLETE;
+}
 
 /**
  * @brief Parse an incoming serial message
  * @param message The incoming char buffer
  */
-void parseSerial(const char* message)
+Error parseSerial(const char* message)
 {
-  response_due = true;
 
   if (strncmp(message, "ACTIVATE", 8) == 0) {
-    transition = Transition::ACTIVATE;
+    state.reset(calibrateControl);
+    return Error::OK;
   }
-  else if (strncmp(message, "DEACTIVATE", 10) == 0) {
-    transition = Transition::DEACTIVATE;
-    setpoint = Setpoint();
+
+  if (strncmp(message, "DEACTIVATE", 10) == 0) {
+    state.reset(inactiveControl);
+    return Error::OK;
   }
-  else if (strncmp(message, "SETPOINT", 8) == 0) {
-    float x, y;
-    if (sscanf(message, "SETPOINT %f %f", &x, &y) == 2) {
-      setpoint.x = x; // Update the current setpoint
-      setpoint.y = y;
+
+  if (strncmp(message, "SETPOINT", 8) == 0) {
+
+    if (state.callback == inactiveControl 
+     || state.callback == calibrateControl ) { return Error::INVALID_TRANSITION; }
+
+    float x, y, tolerance, velocity;
+    int timeout;
+    if (sscanf(message, "SETPOINT %f %f %f %f %d", 
+      &x, &y, &tolerance, &velocity, &timeout) == 2) {
+        delete state.setpoint;
+        state.setpoint = new Setpoint(x, y, tolerance, velocity, timeout);
+        return Error::OK;
     } else {
-      error = Error::INVALID_SETPOINT;
+      return Error::INVALID_SETPOINT;
     }
-  } else { error = Error::INVALID_SERIAL; }
+  }
+
+  return Error::INVALID_SERIAL;
 }
 
+
 /**
- * @brief Parse the serial buffer iff a new message is available
+ * @brief Get the serial buffer, assuming one is available
  */
-void readSerial()
+void getSerial()
 {
+  static char serial_buffer[64];
   serial_buffer[0] = '\0';
   int index = 0;
 
@@ -113,76 +87,25 @@ void readSerial()
 
     if (incoming == '\n') { // Message is complete
         serial_buffer[index] = '\0'; // Null-terminate the string
-        parseSerial(serial_buffer); 
+        state.error = parseSerial(serial_buffer); 
         index = 0; // Reset for next message
     } 
     else if (index < 63) { // Avoid buffer overflow
         serial_buffer[index++] = incoming;
     }
-    }
+  }
 }
 
 /**
- * @brief Send a response to the serial buffer based on the current state
+ * @brief Respond with the appropriate serial message
  */
-void respondSerial()
-{
-  if (error == Error::OK) {
-    switch (status)
-    {
-    case Status::INACTIVE:
-      Serial.println("OK INACTIVE");
-      break;
-    case Status::CALIBRATED:
-      Serial.println("OK ACTIVE");
-      break;
-    case Status::FINISHED:
-      Serial.println("OK FINISHED");
-      break;
-    default:
-      Serial.println("ERROR Controller tried to respond while still in a transition state.");
-      break;
-    }
+void respondSerial(Status status) {
+  if (state.error == Error::OK)
+  {
+    Serial.println(processStatus(status));
+  } else {
+    Serial.println(processError(state.error));
   }
-  else {
-    switch (error)
-    {
-    case Error::INVALID_SERIAL:
-      Serial.println("ERROR Invalid serial message received.");
-      break;
-    case Error::INVALID_SETPOINT:
-      Serial.println("ERROR Invalid setpoint received.");
-      break;
-    case Error::CONTROL_TIMEOUT:
-      Serial.println("ERROR Control timed out. Collision likely!");
-      break;
-    }
-  }
-
-  response_due = false;
-}
-
-//  
-// Control loop callbacks 
-//
-
-Status activeControl() {
-  delay(500);
-  // response_due = true;
-  return Status::FINISHED;
-}
-
-Status calibrateControl() {
-  delay(500);
-  // response_due = true;
-  setpoint = home;
-  return Status::CALIBRATED;
-}
-
-Status inactiveControl() {
-  delay(100);
-  // response_due = true;
-  return Status::INACTIVE;
 }
 
 void setup()
@@ -190,28 +113,30 @@ void setup()
   Serial.begin(SERIAL_BAUD_RATE);
   while(!Serial);
 
-  callback = inactiveControl;
-
 }
 
 void loop()
 {
-  
-  readSerial();
-
-  switch (transition)
-  {
-  case Transition::NONE:
-    break;
-  case Transition::ACTIVATE:
-    callback = calibrateControl;
-    break;
-  case Transition::DEACTIVATE:
-    callback = inactiveControl;
+  if (Serial.available()) {
+    getSerial();
+    state.response_due = true;
   }
 
-  status = callback();
+  auto status = state.callback();
+    
 
-  if(response_due) { respondSerial(); }
+  if(state.response_due) {
+    respondSerial(status);
+    state.response_due = false;
+  }
 
 }
+
+#else
+
+int main(int argc, char **argv) {
+    // Ghost entry point
+    return 0;
+}
+
+#endif
