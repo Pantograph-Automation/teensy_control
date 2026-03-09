@@ -20,7 +20,14 @@ class Joint {
 
       float error = target_angle - _read_position();
 
-      if (abs(error) <= TOLERANCE) { return Status::COMPLETE; }
+      if (error >= TOLERANCE) {
+        _stepper->set_direction_forward();
+      }
+      else if (error <= -TOLERANCE)
+      {
+        _stepper->set_direction_backward();
+      }
+      else { return Status::COMPLETE; }
 
       unsigned long dt = _clock->microseconds() - last_pulse_time;
 
@@ -30,12 +37,14 @@ class Joint {
         _clock->sleep(PULSE_WIDTH_US);
         _stepper->set_high();
       }
+
+      return Status::ACTIVE;
     }
     
     inline float _read_position() {
       return _encoder->read_angle();
     }
-    
+
   private:
     StepperInterface* _stepper;
     EncoderInterface* _encoder;
