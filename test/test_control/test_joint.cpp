@@ -23,27 +23,16 @@ class JointTest : public ::testing::Test {
     }
 };
 
-TEST_F(JointTest, PullHighLargeError) {
+TEST_F(JointTest, TestPulseRequired) {
   EXPECT_CALL(mockEncoder, read_angle()).WillOnce(Return(10.0f));
   float target = 5.0f;
   
-  EXPECT_CALL(mockStepper, set_direction_forward());
-  
-  Status status = joint->pull_high(target);
+  EXPECT_CALL(mockStepper, set_direction_backward());
+  EXPECT_CALL(mockClock, microseconds()).WillOnce(Return(1000));
+  EXPECT_CALL(mockStepper, set_low());
+  EXPECT_CALL(mockStepper, set_high());
+
+  Status status = joint->pulse_if_required(target);
   
   EXPECT_EQ(status, Status::ACTIVE);
-}
-
-TEST_F(JointTest, PullLowSetsStepperLowAfterPulseWidth) {
-   
-  EXPECT_CALL(mockClock, microseconds()).WillRepeatedly(Return(1000));
-  EXPECT_CALL(mockEncoder, read_angle()).WillRepeatedly(Return(10.0f));
-
-  joint->pull_high(5.0f); 
-
-  EXPECT_CALL(mockClock, microseconds()).WillRepeatedly(Return(2000));
-
-  EXPECT_CALL(mockStepper, set_low());
-
-  joint->pull_low();
 }

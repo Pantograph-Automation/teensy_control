@@ -22,7 +22,7 @@ class Encoder : public EncoderInterface
     {
       wire->begin();
       wire->setClock(400000);
-      as5600.begin(4); //FIXME: Use a non-wired pin
+      as5600.begin();
       as5600.setDirection(AS5600_CLOCK_WISE);
     }
     

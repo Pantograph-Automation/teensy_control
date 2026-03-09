@@ -6,7 +6,6 @@
 
 class MockStepper : public StepperInterface {
 public:
-  MOCK_METHOD(void, begin, (), (override));
   MOCK_METHOD(void, set_direction_forward, (), (override));
   MOCK_METHOD(void, set_direction_backward, (), (override));
   MOCK_METHOD(void, set_high, (), (override));
@@ -23,4 +22,5 @@ class MockClock : public ClockInterface {
   public:
     MOCK_METHOD(unsigned long, microseconds, (), (override));
     MOCK_METHOD(unsigned long, milliseconds, (), (override));
+    MOCK_METHOD(void, sleep, (unsigned long), (override));
 };

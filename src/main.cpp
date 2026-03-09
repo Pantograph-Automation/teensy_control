@@ -1,6 +1,8 @@
 // usbipd list
 // usbipd attach --wsl --busid 2-1
+#if defined(ARDUINO)
 
+#include "Arduino.h"
 #include "lifecycle.hpp"
 #include "clock.hpp"
 #include "encoder.hpp"
@@ -10,17 +12,12 @@
 #define PULSE 4
 #define DIR 5
 Clock hw_clock;
-Encoder hw_encoder(&Wire);
+Encoder hw_encoder(&Wire1);
 Stepper hw_stepper(PULSE, DIR);
 
 Joint joint(&hw_stepper, &hw_encoder, &hw_clock);
 
 State state;
-
-
-#if defined(ARDUINO)
-
-#include "Arduino.h"
 
 Status activeControl() {
   
