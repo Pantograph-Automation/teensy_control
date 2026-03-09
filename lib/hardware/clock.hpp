@@ -7,8 +7,8 @@ class Clock : public ClockInterface {
   public:
     Clock() {};
 
-    inline unsigned long microseconds() override { return micros(); }
+    inline unsigned long milliseconds() override { return millis(); }
 
-    inline unsigned long microseconds() override { return millis(); }
+    inline unsigned long microseconds() override { return micros(); }
 
 };

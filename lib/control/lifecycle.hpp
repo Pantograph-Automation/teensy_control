@@ -49,14 +49,14 @@ class State
     Setpoint* setpoint;
 
     /** @brief The currently active error, if any */
-    Error* error;
+    Error error = Error::OK;
 
     /** @brief Whether or not a response is due to the serial interface */
     bool response_due = false;
 
     inline void reset(StatusCallback callback) {
       setpoint = nullptr;
-      error = nullptr;
+      error = Error::OK;
       this->callback = callback;
     }
 

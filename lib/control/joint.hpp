@@ -52,7 +52,9 @@ class Joint {
 
     };
     
-
+    inline float _read_position() {
+          return _encoder->read_angle();
+        }
   private:
     StepperInterface* _stepper;
     EncoderInterface* _encoder;
@@ -62,7 +64,5 @@ class Joint {
     bool pulse;
     unsigned long last_edge_time;
 
-    inline float _read_position() {
-      return _encoder->read_angle();
-    }
+    
 };

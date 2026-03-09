@@ -2,24 +2,41 @@
 // usbipd attach --wsl --busid 2-1
 
 #include "lifecycle.hpp"
+#include "clock.hpp"
+#include "encoder.hpp"
+#include "stepper.hpp"
+#include "joint.hpp"
+
+#define PULSE 4
+#define DIR 5
+Clock hw_clock;
+Encoder hw_encoder(&Wire);
+Stepper hw_stepper(PULSE, DIR);
+
+Joint joint(&hw_stepper, &hw_encoder, &hw_clock);
 
 State state;
 
+
+#if defined(ARDUINO)
+
+#include "Arduino.h"
+
 Status activeControl() {
+  
+  Serial.println(joint._read_position());
+  delay(100);
   return Status::COMPLETE;
 }
 
 Status calibrateControl() {
+  state.callback = activeControl;
   return Status::COMPLETE;
 }
 
 Status inactiveControl() {
   return Status::COMPLETE;
 }
-
-#if defined(ARDUINO)
-
-#include "Arduino.h"
 
 /**
  * @brief Parse an incoming serial message
@@ -46,8 +63,9 @@ Error parseSerial(const char* message)
     float x, y, tolerance, velocity;
     int timeout;
     if (sscanf(message, "SETPOINT %f %f %f %f %d", 
-      &x, &x, &tolerance, &velocity, &timeout) == 2) {
-        state.setpoint = &Setpoint(x, y, tolerance, velocity, timeout);
+      &x, &y, &tolerance, &velocity, &timeout) == 2) {
+        delete state.setpoint;
+        state.setpoint = new Setpoint(x, y, tolerance, velocity, timeout);
         return Error::OK;
     } else {
       return Error::INVALID_SETPOINT;
@@ -72,7 +90,7 @@ void getSerial()
 
     if (incoming == '\n') { // Message is complete
         serial_buffer[index] = '\0'; // Null-terminate the string
-        parseSerial(serial_buffer); 
+        state.error = parseSerial(serial_buffer); 
         index = 0; // Reset for next message
     } 
     else if (index < 63) { // Avoid buffer overflow
@@ -85,11 +103,11 @@ void getSerial()
  * @brief Respond with the appropriate serial message
  */
 void respondSerial(Status status) {
-  if (nullptr == state.error || *state.error == Error::OK)
+  if (state.error == Error::OK)
   {
     Serial.println(processStatus(status));
   } else {
-    Serial.println(processError(*state.error));
+    Serial.println(processError(state.error));
   }
 }
 

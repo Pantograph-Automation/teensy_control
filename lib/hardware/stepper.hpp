@@ -9,17 +9,14 @@ class Stepper : public StepperInterface
 
     /**
      * @param pulse_pin Pin used to pulse the stepper motor
-     * @param enable_pin Pin used to enable the stepper motor
      * @param direction_pin Pin used to control the direction of the motor
      */
-    Stepper(int pulse_pin, int enable_pin, int direction_pin) 
+    Stepper(int pulse_pin, int direction_pin) 
     {
       this->pulse_pin = pulse_pin;
-      this->enable_pin = enable_pin;
       this->direction_pin = direction_pin;
 
       pinMode(pulse_pin, OUTPUT);
-      pinMode(enable_pin, OUTPUT);
       pinMode(direction_pin, OUTPUT);
 
     };
@@ -60,7 +57,6 @@ class Stepper : public StepperInterface
 
     // pin information
     int pulse_pin;
-    int enable_pin;
     int direction_pin;
 
 };
