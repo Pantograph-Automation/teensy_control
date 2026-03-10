@@ -9,24 +9,35 @@
 #include "stepper.hpp"
 #include "joint.hpp"
 
-#define PULSE 4
-#define DIR 5
+#define PULSE1 4
+#define DIR1 5
 Clock hw_clock;
-Encoder hw_encoder(&Wire1);
-Stepper hw_stepper(PULSE, DIR);
 
-Joint joint(&hw_stepper, &hw_encoder, &hw_clock);
+Encoder hw_encoder1(&Wire1);
+Stepper hw_stepper1(PULSE1, DIR1);
+Joint joint1(&hw_stepper1, &hw_encoder1, &hw_clock);
+
+#define PULSE2 6
+#define DIR2 7
+Encoder hw_encoder2(&Wire);
+Stepper hw_stepper2(PULSE2, DIR2);
+Joint joint2(&hw_stepper2, &hw_encoder2, &hw_clock);
 
 State state;
 
 Status activeControl() {
   
-  Serial.println(joint._read_position());
-  delay(100);
+  Serial.print(joint1._read_position());
+  Serial.print("  ");
+  delay(5);
+  Serial.println(joint2._read_position());
+  delay(80);
   return Status::COMPLETE;
 }
 
 Status calibrateControl() {
+  joint1.bad_calibrate();
+  joint2.bad_calibrate();
   state.callback = activeControl;
   return Status::COMPLETE;
 }
@@ -57,12 +68,12 @@ Error parseSerial(const char* message)
     if (state.callback == inactiveControl 
      || state.callback == calibrateControl ) { return Error::INVALID_TRANSITION; }
 
-    float x, y, tolerance, velocity;
+    float q1, q2, tolerance, velocity;
     int timeout;
     if (sscanf(message, "SETPOINT %f %f %f %f %d", 
-      &x, &y, &tolerance, &velocity, &timeout) == 2) {
+      &q1, &q2, &tolerance, &velocity, &timeout) == 2) {
         delete state.setpoint;
-        state.setpoint = new Setpoint(x, y, tolerance, velocity, timeout);
+        state.setpoint = new Setpoint(q1, q2, tolerance, velocity, timeout);
         return Error::OK;
     } else {
       return Error::INVALID_SETPOINT;
@@ -112,6 +123,9 @@ void setup()
 {
   Serial.begin(SERIAL_BAUD_RATE);
   while(!Serial);
+
+  joint1.begin();
+  joint2.begin();
 
 }
 

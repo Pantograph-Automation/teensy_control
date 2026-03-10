@@ -23,15 +23,15 @@ enum class Error
 struct Setpoint
 {
   Setpoint(
-    float x,
-    float y,
+    float q1,
+    float q2,
     float tolerance,
     float velocity,
     unsigned long int timeout
-  ) : x(x), y(y), tolerance(tolerance), velocity(velocity), timeout(timeout) {};
+  ) : q1(q1), q2(q2), tolerance(tolerance), velocity(velocity), timeout(timeout) {};
 
-  float x;
-  float y;
+  float q1;
+  float q2;
   float tolerance;
   float velocity;
   int timeout;

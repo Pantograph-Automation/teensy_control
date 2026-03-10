@@ -16,6 +16,21 @@ class Joint {
     Joint(StepperInterface* stepper, EncoderInterface* encoder, ClockInterface* clock)
       : _stepper(stepper), _encoder(encoder), _clock(clock) {}
 
+    inline void begin() {
+      _encoder->begin();
+      _stepper->set_high();
+      last_pulse_time = _clock->microseconds();
+    }
+
+    inline void bad_calibrate() {
+
+      last_encoder_reading = 0.5*_encoder->read_angle() + 0.5*_encoder->read_angle();
+   
+      rotations = 1;
+      offset = last_encoder_reading - (0.5*PI);
+
+    }
+
     inline Status pulse_if_required(float target_angle) {
 
       float error = target_angle - _read_position();
@@ -42,7 +57,17 @@ class Joint {
     }
     
     inline float _read_position() {
-      return _encoder->read_angle();
+      
+      float current_encoder_reading = _encoder->read_angle();
+      float delta = current_encoder_reading - last_encoder_reading;
+
+      if (delta < -PI) { rotations += 1; }
+      else if (delta > PI) { rotations -= 1; }
+
+      last_encoder_reading = current_encoder_reading;
+
+      float total_motor_angle = (rotations * 2 * PI) + current_encoder_reading - offset;
+      return total_motor_angle / 5;
     }
 
   private:
@@ -50,9 +75,12 @@ class Joint {
     EncoderInterface* _encoder;
     ClockInterface* _clock;
 
-    int rotations;
-    bool pulse;
+
+    int rotations = 0;
+    bool pulse = false;
     unsigned long last_pulse_time;
+    float last_encoder_reading;
+    float offset;
 
     
 };
