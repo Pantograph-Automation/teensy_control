@@ -13,7 +13,7 @@
 #include "stage.hpp"
 
 #define TOLERANCE 0.005f
-#define JOINT_VEL 5.0f
+#define JOINT_VEL 1.0f
 
 #define PULSE1 4
 #define DIR1 5
@@ -33,7 +33,7 @@ Joint joint2(&hw_stepper2, &hw_encoder2, &hw_clock);
 
 #define PULSE3 2
 #define DIR3 3
-#define HOME_Z 0.2f
+#define HOME_Z 0.05f
 Stepper hw_stepper3(PULSE3, DIR3);
 Stage linear_stage(&hw_stepper3, &hw_clock);
 

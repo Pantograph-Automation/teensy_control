@@ -12,7 +12,7 @@ class Stage {
 
     inline void bad_calibrate() {
 
-      current_position = 0.2; //m
+      current_position = 0.02; //m
 
     }
 
