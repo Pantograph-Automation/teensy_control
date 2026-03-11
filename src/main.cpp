@@ -3,6 +3,8 @@
 #if defined(ARDUINO)
 
 #include "Arduino.h"
+#include "Servo.h"
+
 #include "lifecycle.hpp"
 #include "clock.hpp"
 #include "encoder.hpp"
@@ -35,14 +37,34 @@ Joint joint2(&hw_stepper2, &hw_encoder2, &hw_clock);
 Stepper hw_stepper3(PULSE3, DIR3);
 Stage linear_stage(&hw_stepper3, &hw_clock);
 
+#define SERVO_PIN 20
+Servo servo;
+bool current_gripper_state = false; // HACK: Tracking gripper with two bools??
+bool commanded_gripper_state = false; // false is open, true is closed
+void close_gripper () {
+  servo.write(32);
+  delay(100);
+}
+
+void open_gripper () {
+  servo.write(10);
+  delay(100);
+}
+
 State state;
 
 Status activeControl() {
   
   joint1.pulse_if_required(state.setpoint->q1, state.setpoint->tolerance, state.setpoint->velocity);
   joint2.pulse_if_required(state.setpoint->q2, state.setpoint->tolerance, state.setpoint->velocity);
-  
   linear_stage.pulse_if_required(state.setpoint->z);
+
+  if (current_gripper_state != commanded_gripper_state) {
+    if (commanded_gripper_state == false) { open_gripper(); }
+    else { close_gripper(); }
+
+    current_gripper_state = commanded_gripper_state;
+  }
 
   return Status::ACTIVE;
 }
@@ -75,6 +97,25 @@ Error parseSerial(const char* message)
 
   if (strncmp(message, "DEACTIVATE", 10) == 0) {
     state.reset(inactiveControl);
+    return Error::OK;
+  }
+
+  if (strncmp(message, "GRIPPER OPEN", 12) == 0) {
+
+    if (state.callback == inactiveControl 
+     || state.callback == calibrateControl ) { return Error::INVALID_TRANSITION; }
+
+
+    commanded_gripper_state = false;
+    return Error::OK;
+  }
+
+  if (strncmp(message, "GRIPPER CLOSE", 13) == 0) {
+
+    if (state.callback == inactiveControl 
+     || state.callback == calibrateControl ) { return Error::INVALID_TRANSITION; }
+
+    commanded_gripper_state = true;
     return Error::OK;
   }
 
@@ -140,6 +181,9 @@ void setup()
 
   joint1.begin();
   joint2.begin();
+
+  servo.attach(SERVO_PIN);
+
 
 }
 
