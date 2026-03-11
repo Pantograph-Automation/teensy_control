@@ -5,10 +5,9 @@
 #include "stepper_interface.hpp"
 #include "lifecycle.hpp"
 
-#define TOLERANCE 0.02f
+
 #define RAD_PER_STEP 0.003926991f
-#define JOINT_VEL 0.2f
-#define PULSE_WIDTH_US 40UL
+#define PULSE_WIDTH_US 20UL
 
 class Joint {
   public:
@@ -31,26 +30,29 @@ class Joint {
 
     }
 
-    inline Status pulse_if_required(float target_angle) {
+    inline Status pulse_if_required(float target_angle, float tolerance, float joint_vel) {
 
       float error = target_angle - _read_position();
 
-      if (error >= TOLERANCE) {
-        _stepper->set_direction_forward();
-      }
-      else if (error <= -TOLERANCE)
-      {
+      if (error >= tolerance) {
         _stepper->set_direction_backward();
+      }
+      else if (error <= -tolerance)
+      {
+        _stepper->set_direction_forward();
       }
       else { return Status::COMPLETE; }
 
       unsigned long dt = _clock->microseconds() - last_pulse_time;
 
-      if (JOINT_VEL <= RAD_PER_STEP / (dt * 1e-6))
+      unsigned long required_period_us = (unsigned long)((RAD_PER_STEP / joint_vel) * 1000000.0f);
+
+      if (dt >= required_period_us)
       {
         _stepper->set_low();
         _clock->sleep(PULSE_WIDTH_US);
         _stepper->set_high();
+        last_pulse_time = _clock->microseconds();
       }
 
       return Status::ACTIVE;
