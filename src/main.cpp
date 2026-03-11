@@ -9,24 +9,40 @@
 #include "stepper.hpp"
 #include "joint.hpp"
 
-#define PULSE 4
-#define DIR 5
-Clock hw_clock;
-Encoder hw_encoder(&Wire1);
-Stepper hw_stepper(PULSE, DIR);
+#define TOLERANCE 0.005f
+#define JOINT_VEL 5.0f
 
-Joint joint(&hw_stepper, &hw_encoder, &hw_clock);
+#define PULSE1 4
+#define DIR1 5
+#define HOME_J1 2.08
+Clock hw_clock;
+
+Encoder hw_encoder1(&Wire);
+Stepper hw_stepper1(PULSE1, DIR1);
+Joint joint1(&hw_stepper1, &hw_encoder1, &hw_clock);
+
+#define PULSE2 22 // 2 IS PULSE LINEAR RAIL
+#define DIR2 21 // 3 IS DIR LINEAR RAIL
+#define HOME_J2 1.10f
+Encoder hw_encoder2(&Wire1);
+Stepper hw_stepper2(PULSE2, DIR2);
+Joint joint2(&hw_stepper2, &hw_encoder2, &hw_clock);
 
 State state;
 
 Status activeControl() {
   
-  Serial.println(joint._read_position());
-  delay(100);
-  return Status::COMPLETE;
+  joint1.pulse_if_required(state.setpoint->q1, state.setpoint->tolerance, state.setpoint->velocity);
+  joint2.pulse_if_required(state.setpoint->q2, state.setpoint->tolerance, state.setpoint->velocity);
+
+  return Status::ACTIVE;
 }
 
 Status calibrateControl() {
+  joint1.bad_calibrate();
+  joint2.bad_calibrate();
+  delete state.setpoint;
+  state.setpoint = new Setpoint(HOME_J1, HOME_J2, TOLERANCE, JOINT_VEL);
   state.callback = activeControl;
   return Status::COMPLETE;
 }
@@ -57,12 +73,12 @@ Error parseSerial(const char* message)
     if (state.callback == inactiveControl 
      || state.callback == calibrateControl ) { return Error::INVALID_TRANSITION; }
 
-    float x, y, tolerance, velocity;
-    int timeout;
-    if (sscanf(message, "SETPOINT %f %f %f %f %d", 
-      &x, &y, &tolerance, &velocity, &timeout) == 2) {
+    float q1, q2;
+    if (sscanf(message, "SETPOINT %f %f", 
+      &q1, &q2) == 2) {
+
         delete state.setpoint;
-        state.setpoint = new Setpoint(x, y, tolerance, velocity, timeout);
+        state.setpoint = new Setpoint(q1, q2, TOLERANCE, JOINT_VEL);
         return Error::OK;
     } else {
       return Error::INVALID_SETPOINT;
@@ -71,7 +87,6 @@ Error parseSerial(const char* message)
 
   return Error::INVALID_SERIAL;
 }
-
 
 /**
  * @brief Get the serial buffer, assuming one is available
@@ -112,6 +127,9 @@ void setup()
 {
   Serial.begin(SERIAL_BAUD_RATE);
   while(!Serial);
+
+  joint1.begin();
+  joint2.begin();
 
 }
 
