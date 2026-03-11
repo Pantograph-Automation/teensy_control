@@ -8,13 +8,14 @@
 #include "encoder.hpp"
 #include "stepper.hpp"
 #include "joint.hpp"
+#include "stage.hpp"
 
 #define TOLERANCE 0.005f
 #define JOINT_VEL 5.0f
 
 #define PULSE1 4
 #define DIR1 5
-#define HOME_J1 2.08
+#define HOME_J1 2.08f
 Clock hw_clock;
 
 Encoder hw_encoder1(&Wire);
@@ -28,12 +29,20 @@ Encoder hw_encoder2(&Wire1);
 Stepper hw_stepper2(PULSE2, DIR2);
 Joint joint2(&hw_stepper2, &hw_encoder2, &hw_clock);
 
+#define PULSE3 2
+#define DIR3 3
+#define HOME_Z 0.2f
+Stepper hw_stepper3(PULSE3, DIR3);
+Stage linear_stage(&hw_stepper3, &hw_clock);
+
 State state;
 
 Status activeControl() {
   
   joint1.pulse_if_required(state.setpoint->q1, state.setpoint->tolerance, state.setpoint->velocity);
   joint2.pulse_if_required(state.setpoint->q2, state.setpoint->tolerance, state.setpoint->velocity);
+  
+  linear_stage.pulse_if_required(state.setpoint->z);
 
   return Status::ACTIVE;
 }
@@ -41,8 +50,9 @@ Status activeControl() {
 Status calibrateControl() {
   joint1.bad_calibrate();
   joint2.bad_calibrate();
+  linear_stage.bad_calibrate();
   delete state.setpoint;
-  state.setpoint = new Setpoint(HOME_J1, HOME_J2, TOLERANCE, JOINT_VEL);
+  state.setpoint = new Setpoint(HOME_J1, HOME_J2, HOME_Z, TOLERANCE, JOINT_VEL);
   state.callback = activeControl;
   return Status::COMPLETE;
 }
@@ -73,12 +83,12 @@ Error parseSerial(const char* message)
     if (state.callback == inactiveControl 
      || state.callback == calibrateControl ) { return Error::INVALID_TRANSITION; }
 
-    float q1, q2;
-    if (sscanf(message, "SETPOINT %f %f", 
-      &q1, &q2) == 2) {
+    float q1, q2, z;
+    if (sscanf(message, "SETPOINT %f %f %f", 
+      &q1, &q2, &z) == 3) {
 
         delete state.setpoint;
-        state.setpoint = new Setpoint(q1, q2, TOLERANCE, JOINT_VEL);
+        state.setpoint = new Setpoint(q1, q2, z, TOLERANCE, JOINT_VEL);
         return Error::OK;
     } else {
       return Error::INVALID_SETPOINT;

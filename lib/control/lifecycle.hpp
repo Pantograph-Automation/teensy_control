@@ -25,12 +25,14 @@ struct Setpoint
   Setpoint(
     float q1,
     float q2,
+    float z,
     float tolerance,
     float velocity
-  ) : q1(q1), q2(q2), tolerance(tolerance), velocity(velocity) {};
+  ) : q1(q1), q2(q2), z(z), tolerance(tolerance), velocity(velocity) {};
 
   float q1;
   float q2;
+  float z;
   float tolerance;
   float velocity;
 };
