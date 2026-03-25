@@ -42,12 +42,12 @@ Servo servo;
 bool current_gripper_state = false; // HACK: Tracking gripper with two bools??
 bool commanded_gripper_state = false; // false is open, true is closed
 void close_gripper () {
-  servo.write(32);
+  servo.write(45);
   delay(100);
 }
 
 void open_gripper () {
-  servo.write(10);
+  servo.write(5);
   delay(100);
 }
 
@@ -183,7 +183,6 @@ void setup()
   joint2.begin();
 
   servo.attach(SERVO_PIN);
-
 
 }
 
