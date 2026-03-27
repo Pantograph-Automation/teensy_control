@@ -1,7 +1,8 @@
 #pragma once
 
-#include <AS5600.h>
 #include "encoder_interface.hpp"
+#if defined(ARDUINO)
+#include <AS5600.h>
 
 class Encoder : public EncoderInterface
 {
@@ -39,3 +40,4 @@ class Encoder : public EncoderInterface
     AS5600 as5600;
 
 };
+#endif

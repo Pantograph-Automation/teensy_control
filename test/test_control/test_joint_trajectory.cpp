@@ -3,6 +3,7 @@
 #include "joint_trajectory.hpp"
 #include "lifecycle.hpp"
 
+// Verifies long moves use the full trapezoidal profile and reach the goal monotonically.
 TEST(JointTrajectoryTest, GeneratesTrapezoidalProfileForLongMove)
 {
   JointTrajectory trajectory;
@@ -31,6 +32,7 @@ TEST(JointTrajectoryTest, GeneratesTrapezoidalProfileForLongMove)
   EXPECT_TRUE(trajectory.is_complete(2500000));
 }
 
+// Verifies short moves skip cruise time and fall back to a triangular velocity profile.
 TEST(JointTrajectoryTest, FallsBackToTriangularProfileForShortMove)
 {
   JointTrajectory trajectory;
@@ -43,6 +45,7 @@ TEST(JointTrajectoryTest, FallsBackToTriangularProfileForShortMove)
   EXPECT_NEAR(trajectory.sample_position(1000000), 0.1f, 1e-4f);
 }
 
+// Verifies retargeting starts exactly from the current commanded position instead of jumping to a new one.
 TEST(JointTrajectoryTest, RetargetingPreservesPositionContinuity)
 {
   JointTrajectory first_trajectory;
@@ -67,6 +70,7 @@ TEST(JointTrajectoryTest, RetargetingPreservesPositionContinuity)
     1e-5f);
 }
 
+// Verifies state-level joint retargeting produces gradual commanded motion rather than a direct setpoint jump.
 TEST(StateTrajectoryTest, CommandedTargetsMoveGraduallyAfterRetarget)
 {
   State state;
@@ -88,4 +92,15 @@ TEST(StateTrajectoryTest, CommandedTargetsMoveGraduallyAfterRetarget)
   EXPECT_FLOAT_EQ(state.setpoint->z, 0.2f);
 
   state.reset([]() { return Status::COMPLETE; });
+}
+
+// Verifies commanded trajectories settle at their requested goals after the motion profile finishes.
+TEST(StateTrajectoryTest, CommandedTargetsReachGoalAfterTrajectoryCompletion)
+{
+  State state;
+  state.initialize_joint_trajectories(0.0f, 0.0f, 1.0f, 2.0f, 0);
+  state.retarget_joints(1.0f, -0.5f, 1.0f, 2.0f, 0);
+
+  EXPECT_NEAR(state.commanded_q1(2000000), 1.0f, 1e-4f);
+  EXPECT_NEAR(state.commanded_q2(2000000), -0.5f, 1e-4f);
 }

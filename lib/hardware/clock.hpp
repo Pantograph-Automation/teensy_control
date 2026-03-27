@@ -1,7 +1,8 @@
 #pragma once
 
-#include "Arduino.h"
 #include "clock_interface.hpp"
+#if defined(ARDUINO)
+#include "Arduino.h"
 
 class Clock : public ClockInterface {
   public:
@@ -14,3 +15,4 @@ class Clock : public ClockInterface {
     inline void sleep(const unsigned long microseconds) override { delayMicroseconds(microseconds); }
 
 };
+#endif

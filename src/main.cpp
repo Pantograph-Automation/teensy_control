@@ -8,6 +8,8 @@
 #include "lifecycle.hpp"
 #include "clock.hpp"
 #include "encoder.hpp"
+#include "serial.hpp"
+#include "serial_command_handler.hpp"
 #include "stepper.hpp"
 #include "joint.hpp"
 #include "stage.hpp"
@@ -20,6 +22,7 @@
 #define DIR1 5
 #define HOME_J1 2.08f
 Clock hw_clock;
+HardwareSerialAdapter hw_serial;
 
 Encoder hw_encoder1(&Wire);
 Stepper hw_stepper1(PULSE1, DIR1);
@@ -98,60 +101,23 @@ Status inactiveControl() {
   return Status::COMPLETE;
 }
 
+SerialCommandHandler serial_command_handler(
+  &state,
+  &hw_clock,
+  &commanded_gripper_state,
+  inactiveControl,
+  calibrateControl,
+  TOLERANCE,
+  JOINT_VEL,
+  JOINT_ACCEL);
+
 /**
  * @brief Parse an incoming serial message
  * @param message The incoming char buffer
  */
 Error parseSerial(const char* message)
 {
-
-  if (strncmp(message, "ACTIVATE", 8) == 0) {
-    state.reset(calibrateControl);
-    return Error::OK;
-  }
-
-  if (strncmp(message, "DEACTIVATE", 10) == 0) {
-    state.reset(inactiveControl);
-    return Error::OK;
-  }
-
-  if (strncmp(message, "GRIPPER OPEN", 12) == 0) {
-
-    if (state.callback == inactiveControl 
-     || state.callback == calibrateControl ) { return Error::INVALID_TRANSITION; }
-
-
-    commanded_gripper_state = false;
-    return Error::OK;
-  }
-
-  if (strncmp(message, "GRIPPER CLOSE", 13) == 0) {
-
-    if (state.callback == inactiveControl 
-     || state.callback == calibrateControl ) { return Error::INVALID_TRANSITION; }
-
-    commanded_gripper_state = true;
-    return Error::OK;
-  }
-
-  if (strncmp(message, "SETPOINT", 8) == 0) {
-
-    if (state.callback == inactiveControl 
-     || state.callback == calibrateControl ) { return Error::INVALID_TRANSITION; }
-
-    float q1, q2, z;
-    if (sscanf(message, "SETPOINT %f %f %f", 
-      &q1, &q2, &z) == 3) {
-        const unsigned long now_us = hw_clock.microseconds();
-        state.retarget_joints(q1, q2, JOINT_VEL, JOINT_ACCEL, now_us);
-        replace_setpoint(q1, q2, z, TOLERANCE, JOINT_VEL);
-        return Error::OK;
-    } else {
-      return Error::INVALID_SETPOINT;
-    }
-  }
-
-  return Error::INVALID_SERIAL;
+  return serial_command_handler.parse_serial(message);
 }
 
 /**
@@ -159,39 +125,19 @@ Error parseSerial(const char* message)
  */
 void getSerial()
 {
-  static char serial_buffer[64];
-  serial_buffer[0] = '\0';
-  int index = 0;
-
-  while (Serial.available() > 0) {
-    char incoming = Serial.read();
-
-    if (incoming == '\n') { // Message is complete
-        serial_buffer[index] = '\0'; // Null-terminate the string
-        state.error = parseSerial(serial_buffer); 
-        index = 0; // Reset for next message
-    } 
-    else if (index < 63) { // Avoid buffer overflow
-        serial_buffer[index++] = incoming;
-    }
-  }
+  serial_command_handler.get_serial(&hw_serial);
 }
 
 /**
  * @brief Respond with the appropriate serial message
  */
 void respondSerial(Status status) {
-  if (state.error == Error::OK)
-  {
-    Serial.println(processStatus(status));
-  } else {
-    Serial.println(processError(state.error));
-  }
+  serial_command_handler.respond_serial(&hw_serial, status);
 }
 
 void setup()
 {
-  Serial.begin(SERIAL_BAUD_RATE);
+  hw_serial.begin(SERIAL_BAUD_RATE);
   while(!Serial);
 
   joint1.begin();
@@ -203,7 +149,7 @@ void setup()
 
 void loop()
 {
-  if (Serial.available()) {
+  if (hw_serial.available()) {
     getSerial();
     state.response_due = true;
   }

@@ -1,7 +1,8 @@
 #pragma once
 
-#include "Arduino.h"
 #include "stepper_interface.hpp"
+#if defined(ARDUINO)
+#include "Arduino.h"
 
 class Stepper : public StepperInterface
 {
@@ -60,3 +61,4 @@ class Stepper : public StepperInterface
     int direction_pin;
 
 };
+#endif

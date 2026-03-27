@@ -106,7 +106,7 @@ class State
 
 };
 
-const char* processError(Error error)
+inline const char* processError(Error error)
 {
   switch (error)
   {
@@ -123,7 +123,7 @@ const char* processError(Error error)
   }
 }
 
-const char* processStatus(Status status) {
+inline const char* processStatus(Status status) {
   switch (status)
   {
     case Status::ACTIVE:

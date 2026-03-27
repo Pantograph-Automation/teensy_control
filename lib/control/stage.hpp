@@ -1,3 +1,5 @@
+#pragma once
+
 #include "stepper_interface.hpp"
 #include "clock_interface.hpp"
 #include "lifecycle.hpp"

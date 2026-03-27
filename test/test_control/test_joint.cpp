@@ -1,48 +1,106 @@
-#include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
 #include "joint.hpp"
 #include "mocks.hpp"
 
-using ::testing::Return;
 using ::testing::NiceMock;
+using ::testing::Return;
 
-class JointTest : public ::testing::Test {
-  protected:
-    NiceMock<MockStepper> mockStepper;
-    NiceMock<MockEncoder> mockEncoder;
-    NiceMock<MockClock>   mockClock;
-    
-    Joint* joint;
+class JointTest : public ::testing::Test
+{
+protected:
+  NiceMock<MockStepper> mock_stepper;
+  NiceMock<MockEncoder> mock_encoder;
+  NiceMock<MockClock> mock_clock;
+  Joint joint{&mock_stepper, &mock_encoder, &mock_clock};
 
-    void SetUp() override {
-        joint = new Joint(&mockStepper, &mockEncoder, &mockClock);
-    }
+  void begin_joint(unsigned long start_time_us = 0UL)
+  {
+    EXPECT_CALL(mock_encoder, begin());
+    EXPECT_CALL(mock_stepper, set_high());
+    EXPECT_CALL(mock_clock, microseconds()).WillOnce(Return(start_time_us));
+    joint.begin();
+  }
 
-    void TearDown() override {
-        delete joint;
-    }
+  void calibrate_joint(float encoder_angle)
+  {
+    EXPECT_CALL(mock_encoder, read_angle())
+      .WillOnce(Return(encoder_angle))
+      .WillOnce(Return(encoder_angle));
+    joint.bad_calibrate();
+  }
 };
 
-TEST_F(JointTest, TestPulseRequired) {
-  EXPECT_CALL(mockEncoder, begin());
-  EXPECT_CALL(mockClock, microseconds()).WillOnce(Return(0));
-  joint->begin();
+// Verifies startup primes the encoder and pulse line so later control-loop pulses start from a known state.
+TEST_F(JointTest, BeginInitializesEncoderAndPulseTiming)
+{
+  begin_joint(42UL);
+}
 
-  EXPECT_CALL(mockEncoder, read_angle())
-    .WillOnce(Return(0.5f))
-    .WillOnce(Return(0.5f))
-    .WillOnce(Return(0.5f));
-  joint->bad_calibrate();
+// Verifies calibration converts encoder readings into the expected home-aligned joint position.
+TEST_F(JointTest, CalibrationSeedsHomeReferencedPosition)
+{
+  begin_joint();
+  calibrate_joint(0.5f);
 
-  EXPECT_CALL(mockStepper, set_direction_backward());
-  EXPECT_CALL(mockClock, microseconds())
-    .WillOnce(Return(1000000))
-    .WillOnce(Return(1000020));
-  EXPECT_CALL(mockStepper, set_low());
-  EXPECT_CALL(mockStepper, set_high());
-  EXPECT_CALL(mockClock, sleep(PULSE_WIDTH_US));
+  EXPECT_CALL(mock_encoder, read_angle()).WillOnce(Return(0.5f));
 
-  Status status = joint->pulse_if_required(2.0f, 0.01f, 1.0f);
-  
-  EXPECT_EQ(status, Status::ACTIVE);
+  EXPECT_NEAR(joint._read_position(), 0.5f * k_pi, 1e-5f);
+}
+
+// Verifies positive position error commands the backward direction and emits a pulse once the period has elapsed.
+TEST_F(JointTest, PulseIfRequiredCommandsBackwardStepWhenTargetIsAhead)
+{
+  begin_joint();
+  calibrate_joint(0.5f);
+
+  EXPECT_CALL(mock_encoder, read_angle()).WillOnce(Return(0.5f));
+  EXPECT_CALL(mock_stepper, set_direction_backward());
+  EXPECT_CALL(mock_clock, microseconds())
+    .WillOnce(Return(1000000UL))
+    .WillOnce(Return(1000020UL));
+  EXPECT_CALL(mock_stepper, set_low());
+  EXPECT_CALL(mock_clock, sleep(PULSE_WIDTH_US));
+  EXPECT_CALL(mock_stepper, set_high());
+
+  EXPECT_EQ(joint.pulse_if_required(2.0f, 0.01f, 1.0f), Status::ACTIVE);
+}
+
+// Verifies negative position error flips the stepper direction without forcing an early pulse.
+TEST_F(JointTest, PulseIfRequiredCommandsForwardStepWhenTargetIsBehind)
+{
+  begin_joint();
+  calibrate_joint(0.5f);
+
+  EXPECT_CALL(mock_encoder, read_angle()).WillOnce(Return(0.5f));
+  EXPECT_CALL(mock_stepper, set_direction_forward());
+  EXPECT_CALL(mock_clock, microseconds()).WillOnce(Return(100UL));
+
+  EXPECT_EQ(joint.pulse_if_required(1.0f, 0.01f, 1.0f), Status::ACTIVE);
+}
+
+// Verifies in-tolerance targets complete immediately so the control loop does not issue unnecessary step pulses.
+TEST_F(JointTest, PulseIfRequiredCompletesWhenWithinTolerance)
+{
+  begin_joint();
+  calibrate_joint(0.5f);
+
+  EXPECT_CALL(mock_encoder, read_angle()).WillOnce(Return(0.5f));
+
+  EXPECT_EQ(
+    joint.pulse_if_required((0.5f * k_pi) + 0.001f, 0.01f, 1.0f),
+    Status::COMPLETE);
+}
+
+// Verifies encoder wraparound increments the inferred revolution count instead of producing a large discontinuity.
+TEST_F(JointTest, ReadPositionTracksEncoderWraparoundAcrossRotations)
+{
+  begin_joint();
+  calibrate_joint(6.0f);
+
+  EXPECT_CALL(mock_encoder, read_angle()).WillOnce(Return(0.1f));
+
+  const float expected_position = ((4.0f * k_pi) + 0.1f - (6.0f - (0.5f * k_pi))) / 5.0f;
+  EXPECT_NEAR(joint._read_position(), expected_position, 1e-5f);
 }
