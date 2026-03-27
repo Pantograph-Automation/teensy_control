@@ -1,3 +1,5 @@
+# AGENTS.md
+
 ## Repository Purpose
 
 This repository contains firmware and host-side tests for a Teensy 4.0 based motion
@@ -47,3 +49,68 @@ Serial parsing and response handling live in
 - [`lib/hardware/`](/home/dmalexa5/callus-transfer-group-c/teensy_control/lib/hardware): Concrete Teensy/Arduino-facing hardware adapters.
 - [`test/`](/home/dmalexa5/callus-transfer-group-c/teensy_control/test): Native GoogleTest coverage for control logic.
 - [`platformio.ini`](/home/dmalexa5/callus-transfer-group-c/teensy_control/platformio.ini): PlatformIO environments for native tests and Teensy firmware builds.
+
+## Development Guidance
+
+### Control-loop expectations
+
+- Treat the main loop as near-realtime code.
+- Prefer bounded work per iteration.
+- Avoid blocking calls in the active control path unless hardware timing requires
+  them for pulse generation.
+- Keep serial parsing simple and deterministic.
+- Be careful with heap allocation in loop-driven code paths. If changing setpoint
+  ownership or lifecycle handling, favor predictable memory behavior.
+
+### Safe change areas
+
+- Adding or refining serial commands.
+- Tightening state-machine transitions.
+- Improving validation and error reporting.
+- Expanding native test coverage around control behavior.
+- Refactoring toward clearer interfaces while preserving timing-sensitive behavior.
+
+### Areas that deserve extra caution
+
+- Pulse timing constants and direction logic.
+- Encoder wraparound and calibration logic.
+- Any new delays, blocking I/O, or dynamic allocation inside hot paths.
+- Changes that alter command semantics or status/error strings used by upstream
+  tooling.
+
+## Style Requirements
+
+All C++ changes in this repository should follow ROS 2 style requirements as
+closely as practical for embedded code. In particular:
+
+- Follow ROS 2 naming and layout conventions for types, functions, files, and
+  namespaces.
+- Prefer `snake_case` for functions and variables, and use class/type naming that
+  matches ROS 2 conventions used by the surrounding codebase.
+- Keep headers self-contained with `#pragma once`.
+- Prefer `constexpr`, typed constants, and enums over new preprocessor macros
+  where practical.
+- Prefer small, single-purpose functions and explicit, readable control flow.
+- Add brief, high-signal comments only where behavior, timing, or hardware
+  interaction is not obvious.
+
+When touching older code that does not yet match these conventions, improve it
+incrementally without causing unrelated formatting churn.
+
+## Build and Test
+
+Common commands:
+
+- `pio test -e native`
+- `pio run -e teensy40`
+
+The `native` environment uses GoogleTest for host-side validation. The `teensy40`
+environment builds the Arduino/Teensy firmware.
+
+## Expectations for Future Agents
+
+- Preserve the serial-setpoint to control-loop responsibility of this repository.
+- Favor changes that improve determinism, safety, and testability.
+- Verify behavior with native tests when logic changes are made.
+- Keep docs and comments aligned with the actual serial protocol and lifecycle
+  behavior.
