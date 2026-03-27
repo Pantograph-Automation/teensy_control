@@ -1,5 +1,7 @@
 #pragma once
 
+#include <math.h>
+
 #include "clock_interface.hpp"
 #include "encoder_interface.hpp"
 #include "stepper_interface.hpp"
@@ -8,6 +10,7 @@
 
 #define RAD_PER_STEP 0.003926991f
 #define PULSE_WIDTH_US 20UL
+constexpr float k_pi = 3.14159265358979323846f;
 
 class Joint {
   public:
@@ -26,7 +29,7 @@ class Joint {
       last_encoder_reading = 0.5*_encoder->read_angle() + 0.5*_encoder->read_angle();
    
       rotations = 1;
-      offset = last_encoder_reading - (0.5*PI);
+      offset = last_encoder_reading - (0.5f * k_pi);
 
     }
 
@@ -63,12 +66,12 @@ class Joint {
       float current_encoder_reading = _encoder->read_angle();
       float delta = current_encoder_reading - last_encoder_reading;
 
-      if (delta < -PI) { rotations += 1; }
-      else if (delta > PI) { rotations -= 1; }
+      if (delta < -k_pi) { rotations += 1; }
+      else if (delta > k_pi) { rotations -= 1; }
 
       last_encoder_reading = current_encoder_reading;
 
-      float total_motor_angle = (rotations * 2 * PI) + current_encoder_reading - offset;
+      float total_motor_angle = (rotations * 2.0f * k_pi) + current_encoder_reading - offset;
       return total_motor_angle / 5;
     }
 

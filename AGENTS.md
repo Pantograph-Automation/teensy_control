@@ -99,10 +99,7 @@ incrementally without causing unrelated formatting churn.
 
 ## Build and Test
 
-Common commands:
-
-- `pio test -e native`
-- `pio run -e teensy40`
+Do not attempt to build and test. Instead, provide reccomendations for immediate next steps for building and testing.
 
 The `native` environment uses GoogleTest for host-side validation. The `teensy40`
 environment builds the Arduino/Teensy firmware.

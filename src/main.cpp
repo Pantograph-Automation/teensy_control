@@ -14,6 +14,7 @@
 
 #define TOLERANCE 0.005f
 #define JOINT_VEL 1.0f
+#define JOINT_ACCEL 2.0f
 
 #define PULSE1 4
 #define DIR1 5
@@ -53,10 +54,24 @@ void open_gripper () {
 
 State state;
 
+inline void replace_setpoint(
+  const float q1,
+  const float q2,
+  const float z,
+  const float tolerance,
+  const float velocity)
+{
+  delete state.setpoint;
+  state.setpoint = new Setpoint(q1, q2, z, tolerance, velocity);
+}
+
 Status activeControl() {
-  
-  joint1.pulse_if_required(state.setpoint->q1, state.setpoint->tolerance, state.setpoint->velocity);
-  joint2.pulse_if_required(state.setpoint->q2, state.setpoint->tolerance, state.setpoint->velocity);
+  const unsigned long now_us = hw_clock.microseconds();
+  const float commanded_q1 = state.commanded_q1(now_us);
+  const float commanded_q2 = state.commanded_q2(now_us);
+
+  joint1.pulse_if_required(commanded_q1, state.setpoint->tolerance, state.setpoint->velocity);
+  joint2.pulse_if_required(commanded_q2, state.setpoint->tolerance, state.setpoint->velocity);
   linear_stage.pulse_if_required(state.setpoint->z);
 
   if (current_gripper_state != commanded_gripper_state) {
@@ -73,8 +88,8 @@ Status calibrateControl() {
   joint1.bad_calibrate();
   joint2.bad_calibrate();
   linear_stage.bad_calibrate();
-  delete state.setpoint;
-  state.setpoint = new Setpoint(HOME_J1, HOME_J2, HOME_Z, TOLERANCE, JOINT_VEL);
+  replace_setpoint(HOME_J1, HOME_J2, HOME_Z, TOLERANCE, JOINT_VEL);
+  state.initialize_joint_trajectories(HOME_J1, HOME_J2, JOINT_VEL, JOINT_ACCEL, hw_clock.microseconds());
   state.callback = activeControl;
   return Status::COMPLETE;
 }
@@ -127,9 +142,9 @@ Error parseSerial(const char* message)
     float q1, q2, z;
     if (sscanf(message, "SETPOINT %f %f %f", 
       &q1, &q2, &z) == 3) {
-
-        delete state.setpoint;
-        state.setpoint = new Setpoint(q1, q2, z, TOLERANCE, JOINT_VEL);
+        const unsigned long now_us = hw_clock.microseconds();
+        state.retarget_joints(q1, q2, JOINT_VEL, JOINT_ACCEL, now_us);
+        replace_setpoint(q1, q2, z, TOLERANCE, JOINT_VEL);
         return Error::OK;
     } else {
       return Error::INVALID_SETPOINT;

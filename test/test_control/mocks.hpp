@@ -1,4 +1,5 @@
-// test/test_control/mocks.hpp
+#pragma once
+
 #include <gmock/gmock.h>
 #include "encoder_interface.hpp"
 #include "stepper_interface.hpp"
