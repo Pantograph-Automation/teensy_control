@@ -71,27 +71,25 @@ class State
       const float q1,
       const float q2,
       const float velocity,
-      const float acceleration,
+      const float jerk,
       const unsigned long now_us)
     {
-      joint1_trajectory.initialize(q1, 0.0f, q1, velocity, acceleration, now_us);
-      joint2_trajectory.initialize(q2, 0.0f, q2, velocity, acceleration, now_us);
+      joint1_trajectory.initialize(q1, q1, velocity, jerk, now_us);
+      joint2_trajectory.initialize(q2, q2, velocity, jerk, now_us);
     }
 
     inline void retarget_joints(
       const float q1,
       const float q2,
       const float velocity,
-      const float acceleration,
+      const float jerk,
       const unsigned long now_us)
     {
       const float current_q1 = joint1_trajectory.sample_position(now_us);
       const float current_q2 = joint2_trajectory.sample_position(now_us);
-      const float current_v1 = joint1_trajectory.sample_velocity(now_us);
-      const float current_v2 = joint2_trajectory.sample_velocity(now_us);
 
-      joint1_trajectory.initialize(current_q1, current_v1, q1, velocity, acceleration, now_us);
-      joint2_trajectory.initialize(current_q2, current_v2, q2, velocity, acceleration, now_us);
+      joint1_trajectory.initialize(current_q1, q1, velocity, jerk, now_us);
+      joint2_trajectory.initialize(current_q2, q2, velocity, jerk, now_us);
     }
 
     inline float commanded_q1(const unsigned long now_us) const
@@ -102,6 +100,16 @@ class State
     inline float commanded_q2(const unsigned long now_us) const
     {
       return joint2_trajectory.sample_position(now_us);
+    }
+
+    inline float commanded_v1(const unsigned long now_us) const
+    {
+      return joint1_trajectory.sample_velocity(now_us);
+    }
+
+    inline float commanded_v2(const unsigned long now_us) const
+    {
+      return joint2_trajectory.sample_velocity(now_us);
     }
 
 };

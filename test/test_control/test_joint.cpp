@@ -67,6 +67,24 @@ TEST_F(JointTest, PulseIfRequiredCommandsBackwardStepWhenTargetIsAhead)
   EXPECT_EQ(joint.pulse_if_required(2.0f, 0.01f, 1.0f), Status::ACTIVE);
 }
 
+// Verifies pulse timing uses joint-space radians per step after gearbox reduction.
+TEST_F(JointTest, PulseIfRequiredUsesJointSpaceStepSizeForVelocityTiming)
+{
+  begin_joint();
+  calibrate_joint(0.5f);
+
+  EXPECT_CALL(mock_encoder, read_angle()).WillOnce(Return(0.5f));
+  EXPECT_CALL(mock_stepper, set_direction_backward());
+  EXPECT_CALL(mock_clock, microseconds())
+    .WillOnce(Return(1000UL))
+    .WillOnce(Return(1020UL));
+  EXPECT_CALL(mock_stepper, set_low());
+  EXPECT_CALL(mock_clock, sleep(PULSE_WIDTH_US));
+  EXPECT_CALL(mock_stepper, set_high());
+
+  EXPECT_EQ(joint.pulse_if_required(2.0f, 0.01f, 1.0f), Status::ACTIVE);
+}
+
 // Verifies negative position error flips the stepper direction without forcing an early pulse.
 TEST_F(JointTest, PulseIfRequiredCommandsForwardStepWhenTargetIsBehind)
 {
@@ -78,6 +96,24 @@ TEST_F(JointTest, PulseIfRequiredCommandsForwardStepWhenTargetIsBehind)
   EXPECT_CALL(mock_clock, microseconds()).WillOnce(Return(100UL));
 
   EXPECT_EQ(joint.pulse_if_required(1.0f, 0.01f, 1.0f), Status::ACTIVE);
+}
+
+// Verifies zero commanded velocity falls back to a small positive rate so feedback correction can still pulse.
+TEST_F(JointTest, PulseIfRequiredFallsBackWhenVelocityIsZero)
+{
+  begin_joint();
+  calibrate_joint(0.5f);
+
+  EXPECT_CALL(mock_encoder, read_angle()).WillOnce(Return(0.5f));
+  EXPECT_CALL(mock_stepper, set_direction_backward());
+  EXPECT_CALL(mock_clock, microseconds())
+    .WillOnce(Return(5000UL))
+    .WillOnce(Return(5020UL));
+  EXPECT_CALL(mock_stepper, set_low());
+  EXPECT_CALL(mock_clock, sleep(PULSE_WIDTH_US));
+  EXPECT_CALL(mock_stepper, set_high());
+
+  EXPECT_EQ(joint.pulse_if_required(2.0f, 0.01f, 0.0f), Status::ACTIVE);
 }
 
 // Verifies in-tolerance targets complete immediately so the control loop does not issue unnecessary step pulses.

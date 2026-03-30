@@ -14,9 +14,9 @@
 #include "joint.hpp"
 #include "stage.hpp"
 
-#define TOLERANCE 0.005f
-#define JOINT_VEL 1.0f
-#define JOINT_ACCEL 2.0f
+#define TOLERANCE 0.01f
+#define JOINT_VEL 3.5f
+#define JOINT_JERK 100.0f
 
 #define PULSE1 4
 #define DIR1 5
@@ -73,8 +73,11 @@ Status activeControl() {
   const float commanded_q1 = state.commanded_q1(now_us);
   const float commanded_q2 = state.commanded_q2(now_us);
 
-  joint1.pulse_if_required(commanded_q1, state.setpoint->tolerance, state.setpoint->velocity);
-  joint2.pulse_if_required(commanded_q2, state.setpoint->tolerance, state.setpoint->velocity);
+  const float commanded_v1 = fabs(state.commanded_v1(now_us));
+  const float commanded_v2 = fabs(state.commanded_v2(now_us));
+
+  joint1.pulse_if_required(commanded_q1, state.setpoint->tolerance, commanded_v1);
+  joint2.pulse_if_required(commanded_q2, state.setpoint->tolerance, commanded_v2);
   linear_stage.pulse_if_required(state.setpoint->z);
 
   if (current_gripper_state != commanded_gripper_state) {
@@ -88,13 +91,18 @@ Status activeControl() {
 }
 
 Status calibrateControl() {
+  open_gripper();
   joint1.bad_calibrate();
   joint2.bad_calibrate();
   linear_stage.bad_calibrate();
+  const float calibrated_q1 = joint1._read_position();
+  const float calibrated_q2 = joint2._read_position();
+  const unsigned long now_us = hw_clock.microseconds();
   replace_setpoint(HOME_J1, HOME_J2, HOME_Z, TOLERANCE, JOINT_VEL);
-  state.initialize_joint_trajectories(HOME_J1, HOME_J2, JOINT_VEL, JOINT_ACCEL, hw_clock.microseconds());
+  state.joint1_trajectory.initialize(calibrated_q1, HOME_J1, JOINT_VEL, JOINT_JERK, now_us);
+  state.joint2_trajectory.initialize(calibrated_q2, HOME_J2, JOINT_VEL, JOINT_JERK, now_us);
   state.callback = activeControl;
-  return Status::COMPLETE;
+  return Status::ACTIVE;
 }
 
 Status inactiveControl() {
@@ -109,7 +117,7 @@ SerialCommandHandler serial_command_handler(
   calibrateControl,
   TOLERANCE,
   JOINT_VEL,
-  JOINT_ACCEL);
+  JOINT_JERK);
 
 /**
  * @brief Parse an incoming serial message
@@ -144,6 +152,8 @@ void setup()
   joint2.begin();
 
   servo.attach(SERVO_PIN);
+
+  open_gripper();
 
 }
 

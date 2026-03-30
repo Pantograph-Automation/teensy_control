@@ -18,7 +18,7 @@ public:
     StatusCallback calibrate_control,
     float tolerance,
     float joint_velocity,
-    float joint_acceleration)
+    float joint_jerk)
   : state_(state),
     clock_(clock),
     commanded_gripper_state_(commanded_gripper_state),
@@ -26,7 +26,7 @@ public:
     calibrate_control_(calibrate_control),
     tolerance_(tolerance),
     joint_velocity_(joint_velocity),
-    joint_acceleration_(joint_acceleration)
+    joint_jerk_(joint_jerk)
   {
     serial_buffer_[0] = '\0';
   }
@@ -71,7 +71,7 @@ public:
       float z;
       if (std::sscanf(message, "SETPOINT %f %f %f", &q1, &q2, &z) == 3) {
         const unsigned long now_us = clock_->microseconds();
-        state_->retarget_joints(q1, q2, joint_velocity_, joint_acceleration_, now_us);
+        state_->retarget_joints(q1, q2, joint_velocity_, joint_jerk_, now_us);
         replace_setpoint(q1, q2, z, tolerance_, joint_velocity_);
         return Error::OK;
       }
@@ -133,7 +133,7 @@ private:
   StatusCallback calibrate_control_;
   float tolerance_;
   float joint_velocity_;
-  float joint_acceleration_;
+  float joint_jerk_;
   char serial_buffer_[k_buffer_size];
   int serial_buffer_index_ = 0;
 };

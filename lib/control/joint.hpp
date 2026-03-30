@@ -11,6 +11,8 @@
 #define RAD_PER_STEP 0.003926991f
 #define PULSE_WIDTH_US 20UL
 constexpr float k_pi = 3.14159265358979323846f;
+constexpr float k_joint_gear_ratio = 5.0f;
+constexpr float k_joint_rad_per_step = RAD_PER_STEP / k_joint_gear_ratio;
 
 class Joint {
   public:
@@ -47,8 +49,12 @@ class Joint {
       else { return Status::COMPLETE; }
 
       unsigned long dt = _clock->microseconds() - last_pulse_time;
+      if (joint_vel <= 0.0f) {
+        joint_vel = 1.0f;
+      }
 
-      unsigned long required_period_us = (unsigned long)((RAD_PER_STEP / joint_vel) * 1000000.0f);
+      const unsigned long required_period_us =
+        static_cast<unsigned long>((k_joint_rad_per_step / joint_vel) * 1000000.0f);
 
       if (dt >= required_period_us)
       {
@@ -71,8 +77,9 @@ class Joint {
 
       last_encoder_reading = current_encoder_reading;
 
-      float total_motor_angle = (rotations * 2.0f * k_pi) + current_encoder_reading - offset;
-      return total_motor_angle / 5;
+      const float total_motor_angle =
+        (rotations * 2.0f * k_pi) + current_encoder_reading - offset;
+      return total_motor_angle / k_joint_gear_ratio;
     }
 
   private:
