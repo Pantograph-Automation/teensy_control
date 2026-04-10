@@ -14,9 +14,9 @@
 #include "joint.hpp"
 #include "stage.hpp"
 
-#define TOLERANCE 0.01f
-#define JOINT_VEL 3.5f
-#define JOINT_JERK 100.0f
+constexpr float k_tolerance = 0.01f;
+constexpr float k_joint_velocity = 3.5f;
+constexpr float k_joint_acceleration = 100.0f;
 
 #define PULSE1 4
 #define DIR1 5
@@ -64,26 +64,43 @@ inline void replace_setpoint(
   const float tolerance,
   const float velocity)
 {
-  delete state.setpoint;
-  state.setpoint = new Setpoint(q1, q2, z, tolerance, velocity);
+  state.replace_setpoint(q1, q2, z, tolerance, velocity);
 }
 
 Status activeControl() {
   const unsigned long now_us = hw_clock.microseconds();
-  const float commanded_q1 = state.commanded_q1(now_us);
-  const float commanded_q2 = state.commanded_q2(now_us);
 
-  const float commanded_v1 = fabs(state.commanded_v1(now_us));
-  const float commanded_v2 = fabs(state.commanded_v2(now_us));
+  if (state.setpoint_dirty) {
+    state.plan_rotary_trajectory(
+      joint1.read_position(),
+      joint2.read_position(),
+      k_joint_velocity,
+      k_joint_acceleration,
+      now_us);
+  }
 
-  // joint1.pulse_if_required(commanded_q1, state.setpoint->tolerance, commanded_v1);
-  // joint2.pulse_if_required(commanded_q2, state.setpoint->tolerance, commanded_v2);
-  // linear_stage.pulse_if_required(state.setpoint->z);
+  if (state.setpoint == nullptr) {
+    if (current_gripper_state != commanded_gripper_state) {
+      if (commanded_gripper_state == false) { open_gripper(); }
+      else { close_gripper(); }
 
-  // Serial.print(joint1._read_position(), 3);
-  // Serial.print("  ");
-  // Serial.print(joint2._read_position(), 3);
-  // Serial.println();
+      current_gripper_state = commanded_gripper_state;
+    }
+
+    return Status::COMPLETE;
+  }
+
+  const RotaryWaypoint waypoint = state.sample_rotary_waypoint(now_us);
+  const Status joint1_status =
+    joint1.pulse_if_required(waypoint.q1, state.setpoint->tolerance, fabs(waypoint.v1));
+  const Status joint2_status =
+    joint2.pulse_if_required(waypoint.q2, state.setpoint->tolerance, fabs(waypoint.v2));
+  const Status stage_status = linear_stage.pulse_if_required(state.setpoint->z);
+
+  Serial.print(joint1._read_position(), 3);
+  Serial.print("  ");
+  Serial.print(joint2._read_position(), 3);
+  Serial.println();
 
   if (current_gripper_state != commanded_gripper_state) {
     if (commanded_gripper_state == false) { open_gripper(); }
@@ -92,7 +109,13 @@ Status activeControl() {
     current_gripper_state = commanded_gripper_state;
   }
 
-  return Status::ACTIVE;
+  const bool complete =
+    state.rotary_trajectory_complete(now_us) &&
+    joint1_status == Status::COMPLETE &&
+    joint2_status == Status::COMPLETE &&
+    stage_status == Status::COMPLETE;
+
+  return complete ? Status::COMPLETE : Status::ACTIVE;
 }
 
 Status calibrateControl() {
@@ -101,6 +124,11 @@ Status calibrateControl() {
   int CALIB_SPEED = 1500;
 
   // Calibrate first arm
+  while(digitalRead(19) == 0) {
+    linear_stage.pulse_up_once();
+    hw_clock.sleep((int)(CALIB_SPEED / 5));
+  }
+
   hw_stepper1.set_direction_forward();
   hw_stepper2.set_direction_forward();
   while(digitalRead(14) == 0) {
@@ -119,7 +147,7 @@ Status calibrateControl() {
   joint2.bad_calibrate();
   hw_clock.sleep(CALIB_SPEED*10);
   Serial.print("Calibrated J2 at: ");
-  Serial.println(joint2._read_position());
+  Serial.println(joint2.read_position());
 
   // Now second arm
   while(digitalRead(10) == 0) {
@@ -137,15 +165,10 @@ Status calibrateControl() {
   joint1.bad_calibrate();
   hw_clock.sleep(CALIB_SPEED*10);
   Serial.print("Calibrated J1 at: ");
-  Serial.println(joint1._read_position());
+  Serial.println(joint1.read_position());
   
 
-  const float calibrated_q1 = joint1._read_position();
-  const float calibrated_q2 = joint2._read_position();
-  const unsigned long now_us = hw_clock.microseconds();
-  replace_setpoint(HOME_J1, HOME_J2, HOME_Z, TOLERANCE, JOINT_VEL);
-  state.joint1_trajectory.initialize(calibrated_q1, HOME_J1, JOINT_VEL, JOINT_JERK, now_us);
-  state.joint2_trajectory.initialize(calibrated_q2, HOME_J2, JOINT_VEL, JOINT_JERK, now_us);
+  replace_setpoint(HOME_J1, HOME_J2, HOME_Z, k_tolerance, k_joint_velocity);
   state.callback = activeControl;
   return Status::ACTIVE;
 }
@@ -160,9 +183,9 @@ SerialCommandHandler serial_command_handler(
   &commanded_gripper_state,
   inactiveControl,
   calibrateControl,
-  TOLERANCE,
-  JOINT_VEL,
-  JOINT_JERK);
+  k_tolerance,
+  k_joint_velocity,
+  k_joint_acceleration);
 
 /**
  * @brief Parse an incoming serial message
@@ -190,7 +213,7 @@ void respondSerial(Status status) {
 
 void setup()
 {
-  hw_serial.begin(SERIAL_BAUD_RATE);
+  hw_serial.begin(k_serial_baud_rate);
   while(!Serial);
 
   joint1.begin();
@@ -206,17 +229,16 @@ void loop()
 {
   if (hw_serial.available()) {
     getSerial();
-    state.response_due = true;
+  }
+
+  if (state.response_due) {
+    respondSerial(state.pending_status);
+    state.response_due = false;
+    return;
   }
 
   auto status = state.callback();
-    
-
-  if(state.response_due) {
-    respondSerial(status);
-    state.response_due = false;
-  }
-
+  (void)status;
 }
 
 #else

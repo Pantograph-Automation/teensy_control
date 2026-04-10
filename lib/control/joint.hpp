@@ -35,9 +35,16 @@ class Joint {
 
     }
 
+    inline void pulse_once() {
+      _stepper->set_high();
+      _clock->sleep(PULSE_WIDTH_US);
+      _stepper->set_low();
+      _clock->sleep(PULSE_WIDTH_US);
+    }
+
     inline Status pulse_if_required(float target_angle, float tolerance, float joint_vel) {
 
-      float error = target_angle - _read_position();
+      float error = target_angle - read_position();
 
       if (error >= tolerance) {
         _stepper->set_direction_backward();
@@ -67,7 +74,7 @@ class Joint {
       return Status::ACTIVE;
     }
     
-    inline float _read_position() {
+    inline float read_position() {
       
       float current_encoder_reading = _encoder->read_angle();
       float delta = current_encoder_reading - last_encoder_reading;
@@ -80,6 +87,10 @@ class Joint {
       const float total_motor_angle =
         (rotations * 2.0f * k_pi) + current_encoder_reading - offset;
       return total_motor_angle / k_joint_gear_ratio;
+    }
+
+    inline float _read_position() {
+      return read_position();
     }
 
   private:

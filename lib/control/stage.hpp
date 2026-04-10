@@ -12,9 +12,9 @@ class Stage {
   public:
     Stage(StepperInterface* stepper, ClockInterface* clock) : _stepper(stepper), _clock(clock) {};
 
-    inline void bad_calibrate() {
+    inline void bad_calibrate(float position) {
 
-      current_position = 0.02; //m
+      current_position = position; //m
 
     }
 
@@ -41,6 +41,22 @@ class Stage {
 
       return Status::ACTIVE;
       
+    }
+
+    inline void pulse_up_once() {
+      _stepper->set_direction_forward();
+      _stepper->set_high();
+      _clock->sleep(PULSE_WIDTH_US);
+      _stepper->set_high();
+      _clock->sleep(PULSE_WIDTH_US);
+    }
+
+    inline void pulse_down_once() {
+      _stepper->set_direction_backward();
+      _stepper->set_high();
+      _clock->sleep(PULSE_WIDTH_US);
+      _stepper->set_high();
+      _clock->sleep(PULSE_WIDTH_US);
     }
 
     /**

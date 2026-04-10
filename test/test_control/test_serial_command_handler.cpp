@@ -49,7 +49,7 @@ protected:
   {
     state.callback = fake_inactive_control;
     state.error = Error::INVALID_SERIAL;
-    state.initialize_joint_trajectories(0.0f, 0.0f, 1.0f, 2.0f, 0UL);
+    state.setpoint_dirty = false;
   }
 
   void TearDown() override
@@ -86,10 +86,9 @@ TEST_F(SerialCommandHandlerTest, ParseSerialAcceptsValidSetpointWhenActive)
   state.callback = fake_active_control;
   state.setpoint = new Setpoint(0.0f, 0.0f, 0.0f, 0.005f, 1.0f);
 
-  EXPECT_CALL(mock_clock, microseconds()).WillOnce(Return(100000UL));
-
   EXPECT_EQ(handler.parse_serial("SETPOINT 1.0 -0.5 0.2"), Error::OK);
   ASSERT_NE(state.setpoint, nullptr);
+  EXPECT_TRUE(state.setpoint_dirty);
   EXPECT_FLOAT_EQ(state.setpoint->q1, 1.0f);
   EXPECT_FLOAT_EQ(state.setpoint->q2, -0.5f);
   EXPECT_FLOAT_EQ(state.setpoint->z, 0.2f);

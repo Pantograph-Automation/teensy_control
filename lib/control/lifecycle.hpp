@@ -1,8 +1,8 @@
 #pragma once
 
-#include "joint_trajectory.hpp"
+#include "trajectory.hpp"
 
-#define SERIAL_BAUD_RATE 115200
+constexpr unsigned long k_serial_baud_rate = 115200UL;
 
 enum class Status
 {
@@ -39,6 +39,16 @@ struct Setpoint
   float velocity;
 };
 
+struct RotaryWaypoint
+{
+  float q1{0.0f};
+  float q2{0.0f};
+  float v1{0.0f};
+  float v2{0.0f};
+  float a1{0.0f};
+  float a2{0.0f};
+};
+
 class State
 {
   public:
@@ -50,9 +60,14 @@ class State
     /** @brief The currently active system setpoint */
     Setpoint* setpoint = nullptr;
 
-    /** @brief Active trajectory generators for the rotary joints */
-    JointTrajectory joint1_trajectory;
-    JointTrajectory joint2_trajectory;
+    /** @brief Whether the active setpoint needs a new rotary trajectory plan */
+    bool setpoint_dirty = false;
+
+    /** @brief Active synchronized rotary plan */
+    SynchronizedTrapezoids2D rotary_trajectory;
+
+    /** @brief Start time of the active rotary plan */
+    unsigned long trajectory_start_us = 0UL;
 
     /** @brief The currently active error, if any */
     Error error = Error::OK;
@@ -60,56 +75,90 @@ class State
     /** @brief Whether or not a response is due to the serial interface */
     bool response_due = false;
 
+    /** @brief The status payload to send when the current command succeeds */
+    Status pending_status = Status::COMPLETE;
+
     inline void reset(StatusCallback callback) {
       delete setpoint;
       setpoint = nullptr;
+      setpoint_dirty = false;
+      rotary_trajectory = {};
+      trajectory_start_us = 0UL;
       error = Error::OK;
+      response_due = false;
+      pending_status = Status::COMPLETE;
       this->callback = callback;
     }
 
-    inline void initialize_joint_trajectories(
+    inline void replace_setpoint(
       const float q1,
       const float q2,
+      const float z,
+      const float tolerance,
+      const float velocity)
+    {
+      delete setpoint;
+      setpoint = new Setpoint(q1, q2, z, tolerance, velocity);
+      setpoint_dirty = true;
+    }
+
+    inline void plan_rotary_trajectory(
+      const float measured_q1,
+      const float measured_q2,
       const float velocity,
-      const float jerk,
+      const float acceleration,
       const unsigned long now_us)
     {
-      joint1_trajectory.initialize(q1, q1, velocity, jerk, now_us);
-      joint2_trajectory.initialize(q2, q2, velocity, jerk, now_us);
+      if (setpoint == nullptr) {
+        rotary_trajectory = {};
+        trajectory_start_us = now_us;
+        setpoint_dirty = false;
+        return;
+      }
+
+      rotary_trajectory = compute_synchronized_trapezoids_2d(
+        measured_q1,
+        setpoint->q1,
+        measured_q2,
+        setpoint->q2,
+        {
+          static_cast<double>(velocity),
+          static_cast<double>(acceleration)});
+      trajectory_start_us = now_us;
+      setpoint_dirty = false;
     }
 
-    inline void retarget_joints(
-      const float q1,
-      const float q2,
-      const float velocity,
-      const float jerk,
-      const unsigned long now_us)
+    inline RotaryWaypoint sample_rotary_waypoint(const unsigned long now_us) const
     {
-      const float current_q1 = joint1_trajectory.sample_position(now_us);
-      const float current_q2 = joint2_trajectory.sample_position(now_us);
+      const double elapsed_time_s =
+        (now_us <= trajectory_start_us) ?
+        0.0 :
+        static_cast<double>(now_us - trajectory_start_us) / 1000000.0;
+      const SynchronizedTrajectorySample2D sample =
+        sample_synchronized_trapezoids_2d(rotary_trajectory, elapsed_time_s);
 
-      joint1_trajectory.initialize(current_q1, q1, velocity, jerk, now_us);
-      joint2_trajectory.initialize(current_q2, q2, velocity, jerk, now_us);
+      return {
+        static_cast<float>(sample.axis1.q),
+        static_cast<float>(sample.axis2.q),
+        static_cast<float>(sample.axis1.v),
+        static_cast<float>(sample.axis2.v),
+        static_cast<float>(sample.axis1.a),
+        static_cast<float>(sample.axis2.a)};
     }
 
-    inline float commanded_q1(const unsigned long now_us) const
+    inline bool rotary_trajectory_complete(const unsigned long now_us) const
     {
-      return joint1_trajectory.sample_position(now_us);
-    }
+      if (setpoint_dirty) {
+        return false;
+      }
 
-    inline float commanded_q2(const unsigned long now_us) const
-    {
-      return joint2_trajectory.sample_position(now_us);
-    }
+      if (now_us <= trajectory_start_us) {
+        return rotary_trajectory.total_time_s <= 0.0;
+      }
 
-    inline float commanded_v1(const unsigned long now_us) const
-    {
-      return joint1_trajectory.sample_velocity(now_us);
-    }
-
-    inline float commanded_v2(const unsigned long now_us) const
-    {
-      return joint2_trajectory.sample_velocity(now_us);
+      const double elapsed_time_s =
+        static_cast<double>(now_us - trajectory_start_us) / 1000000.0;
+      return elapsed_time_s >= rotary_trajectory.total_time_s;
     }
 
 };

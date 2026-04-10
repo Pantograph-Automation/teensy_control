@@ -46,7 +46,7 @@ TEST_F(JointTest, CalibrationSeedsHomeReferencedPosition)
 
   EXPECT_CALL(mock_encoder, read_angle()).WillOnce(Return(0.5f));
 
-  EXPECT_NEAR(joint._read_position(), 0.5f * k_pi, 1e-5f);
+  EXPECT_NEAR(joint.read_position(), 0.5f * k_pi, 1e-5f);
 }
 
 // Verifies positive position error commands the backward direction and emits a pulse once the period has elapsed.
@@ -138,5 +138,5 @@ TEST_F(JointTest, ReadPositionTracksEncoderWraparoundAcrossRotations)
   EXPECT_CALL(mock_encoder, read_angle()).WillOnce(Return(0.1f));
 
   const float expected_position = ((4.0f * k_pi) + 0.1f - (6.0f - (0.5f * k_pi))) / 5.0f;
-  EXPECT_NEAR(joint._read_position(), expected_position, 1e-5f);
+  EXPECT_NEAR(joint.read_position(), expected_position, 1e-5f);
 }

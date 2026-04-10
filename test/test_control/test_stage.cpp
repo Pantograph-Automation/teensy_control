@@ -17,7 +17,7 @@ protected:
 // Verifies stage calibration restores the known home height used by the rest of the control flow.
 TEST_F(StageTest, BadCalibrateSetsExpectedHomePosition)
 {
-  stage.bad_calibrate();
+  stage.bad_calibrate(0.02f);
 
   EXPECT_FLOAT_EQ(stage.get_position(), 0.02f);
 }
@@ -25,7 +25,7 @@ TEST_F(StageTest, BadCalibrateSetsExpectedHomePosition)
 // Verifies a positive height error commands the backward direction, pulses once, and advances by one step.
 TEST_F(StageTest, PulseIfRequiredMovesStageUpwardByOneStep)
 {
-  stage.bad_calibrate();
+  stage.bad_calibrate(0.02f);
 
   EXPECT_CALL(mock_stepper, set_direction_backward());
   EXPECT_CALL(mock_stepper, set_high());
@@ -39,7 +39,7 @@ TEST_F(StageTest, PulseIfRequiredMovesStageUpwardByOneStep)
 // Verifies a negative height error commands the forward direction and decrements the tracked stage position.
 TEST_F(StageTest, PulseIfRequiredMovesStageDownwardByOneStep)
 {
-  stage.bad_calibrate();
+  stage.bad_calibrate(0.02f);
 
   EXPECT_CALL(mock_stepper, set_direction_forward());
   EXPECT_CALL(mock_stepper, set_high());
@@ -53,7 +53,7 @@ TEST_F(StageTest, PulseIfRequiredMovesStageDownwardByOneStep)
 // Verifies requests inside the stage tolerance window complete without issuing a pulse.
 TEST_F(StageTest, PulseIfRequiredCompletesWhenHeightIsWithinTolerance)
 {
-  stage.bad_calibrate();
+  stage.bad_calibrate(0.02f);
 
   EXPECT_EQ(stage.pulse_if_required(0.0202f), Status::COMPLETE);
   EXPECT_FLOAT_EQ(stage.get_position(), 0.02f);

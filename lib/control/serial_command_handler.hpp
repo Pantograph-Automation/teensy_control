@@ -18,7 +18,7 @@ public:
     StatusCallback calibrate_control,
     float tolerance,
     float joint_velocity,
-    float joint_jerk)
+    float joint_acceleration)
   : state_(state),
     clock_(clock),
     commanded_gripper_state_(commanded_gripper_state),
@@ -26,7 +26,7 @@ public:
     calibrate_control_(calibrate_control),
     tolerance_(tolerance),
     joint_velocity_(joint_velocity),
-    joint_jerk_(joint_jerk)
+    joint_acceleration_(joint_acceleration)
   {
     serial_buffer_[0] = '\0';
   }
@@ -35,11 +35,13 @@ public:
   {
     if (std::strncmp(message, "ACTIVATE", 8) == 0) {
       state_->reset(calibrate_control_);
+      state_->pending_status = Status::ACTIVE;
       return Error::OK;
     }
 
     if (std::strncmp(message, "DEACTIVATE", 10) == 0) {
       state_->reset(inactive_control_);
+      state_->pending_status = Status::COMPLETE;
       return Error::OK;
     }
 
@@ -49,6 +51,7 @@ public:
       }
 
       *commanded_gripper_state_ = false;
+      state_->pending_status = Status::ACTIVE;
       return Error::OK;
     }
 
@@ -58,6 +61,7 @@ public:
       }
 
       *commanded_gripper_state_ = true;
+      state_->pending_status = Status::ACTIVE;
       return Error::OK;
     }
 
@@ -70,9 +74,8 @@ public:
       float q2;
       float z;
       if (std::sscanf(message, "SETPOINT %f %f %f", &q1, &q2, &z) == 3) {
-        const unsigned long now_us = clock_->microseconds();
-        state_->retarget_joints(q1, q2, joint_velocity_, joint_jerk_, now_us);
-        replace_setpoint(q1, q2, z, tolerance_, joint_velocity_);
+        state_->replace_setpoint(q1, q2, z, tolerance_, joint_velocity_);
+        state_->pending_status = Status::ACTIVE;
         return Error::OK;
       }
 
@@ -90,6 +93,7 @@ public:
       if (incoming == '\n') {
         serial_buffer_[serial_buffer_index_] = '\0';
         state_->error = parse_serial(serial_buffer_);
+        state_->response_due = true;
         serial_buffer_index_ = 0;
       } else if (serial_buffer_index_ < (k_buffer_size - 1)) {
         serial_buffer_[serial_buffer_index_++] = incoming;
@@ -114,18 +118,6 @@ private:
   {
     return state_->callback == inactive_control_ || state_->callback == calibrate_control_;
   }
-
-  inline void replace_setpoint(
-    float q1,
-    float q2,
-    float z,
-    float tolerance,
-    float velocity)
-  {
-    delete state_->setpoint;
-    state_->setpoint = new Setpoint(q1, q2, z, tolerance, velocity);
-  }
-
   State * state_;
   ClockInterface * clock_;
   bool * commanded_gripper_state_;
@@ -133,7 +125,7 @@ private:
   StatusCallback calibrate_control_;
   float tolerance_;
   float joint_velocity_;
-  float joint_jerk_;
+  float joint_acceleration_;
   char serial_buffer_[k_buffer_size];
   int serial_buffer_index_ = 0;
 };
