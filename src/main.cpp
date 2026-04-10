@@ -51,7 +51,7 @@ void close_gripper () {
 }
 
 void open_gripper () {
-  servo.write(5);
+  servo.write(15);
   delay(100);
 }
 
@@ -76,9 +76,14 @@ Status activeControl() {
   const float commanded_v1 = fabs(state.commanded_v1(now_us));
   const float commanded_v2 = fabs(state.commanded_v2(now_us));
 
-  joint1.pulse_if_required(commanded_q1, state.setpoint->tolerance, commanded_v1);
-  joint2.pulse_if_required(commanded_q2, state.setpoint->tolerance, commanded_v2);
-  linear_stage.pulse_if_required(state.setpoint->z);
+  // joint1.pulse_if_required(commanded_q1, state.setpoint->tolerance, commanded_v1);
+  // joint2.pulse_if_required(commanded_q2, state.setpoint->tolerance, commanded_v2);
+  // linear_stage.pulse_if_required(state.setpoint->z);
+
+  // Serial.print(joint1._read_position(), 3);
+  // Serial.print("  ");
+  // Serial.print(joint2._read_position(), 3);
+  // Serial.println();
 
   if (current_gripper_state != commanded_gripper_state) {
     if (commanded_gripper_state == false) { open_gripper(); }
@@ -92,9 +97,49 @@ Status activeControl() {
 
 Status calibrateControl() {
   open_gripper();
-  joint1.bad_calibrate();
+
+  int CALIB_SPEED = 1500;
+
+  // Calibrate first arm
+  hw_stepper1.set_direction_forward();
+  hw_stepper2.set_direction_forward();
+  while(digitalRead(14) == 0) {
+    joint1.pulse_once();
+    joint2.pulse_once();
+    hw_clock.sleep(CALIB_SPEED);
+  }
+  hw_stepper1.set_direction_backward();
+  hw_stepper2.set_direction_backward();
+
+  for(int i = 0; i < 739; i++) {
+    joint1.pulse_once();
+    joint2.pulse_once();
+    hw_clock.sleep(CALIB_SPEED);
+  }
   joint2.bad_calibrate();
-  linear_stage.bad_calibrate();
+  hw_clock.sleep(CALIB_SPEED*10);
+  Serial.print("Calibrated J2 at: ");
+  Serial.println(joint2._read_position());
+
+  // Now second arm
+  while(digitalRead(10) == 0) {
+    joint1.pulse_once();
+    joint2.pulse_once();
+    hw_clock.sleep(CALIB_SPEED);
+  }
+  hw_stepper1.set_direction_forward();
+  hw_stepper2.set_direction_forward();
+  for(int i = 0; i < 739; i++) {
+    joint1.pulse_once();
+    joint2.pulse_once();
+    hw_clock.sleep(CALIB_SPEED);
+  }
+  joint1.bad_calibrate();
+  hw_clock.sleep(CALIB_SPEED*10);
+  Serial.print("Calibrated J1 at: ");
+  Serial.println(joint1._read_position());
+  
+
   const float calibrated_q1 = joint1._read_position();
   const float calibrated_q2 = joint2._read_position();
   const unsigned long now_us = hw_clock.microseconds();
