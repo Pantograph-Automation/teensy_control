@@ -71,24 +71,6 @@ inline void replace_setpoint(
 Status activeControl() {
   const unsigned long now_us = hw_clock.microseconds();
 
-  // if (state.setpoint == nullptr) {
-  //   if (current_gripper_state != commanded_gripper_state) {
-  //     if (commanded_gripper_state == false) { open_gripper(); }
-  //     else { close_gripper(); }
-
-  //     current_gripper_state = commanded_gripper_state;
-  //   }
-
-  //   return Status::COMPLETE;
-  // }
-
-  // const RotaryWaypoint waypoint = state.sample_rotary_waypoint(now_us);
-  // const Status joint1_status =
-  //   joint1.pulse_edge(waypoint.q1, fabs(waypoint.v1), state.setpoint->tolerance);
-  // const Status joint2_status =
-  //   joint2.pulse_edge(waypoint.q2, fabs(waypoint.v2), state.setpoint->tolerance);
-  // const Status stage_status = linear_stage.pulse_if_required(state.setpoint->z);
-
   Serial.print(joint1.read_position(), 3);
   Serial.print("  ");
   Serial.print(joint2.read_position(), 3);
@@ -101,74 +83,49 @@ Status activeControl() {
     current_gripper_state = commanded_gripper_state;
   }
 
-  // const bool complete =
-  //   state.rotary_trajectory_complete(now_us) &&
-  //   joint1_status == Status::COMPLETE &&
-  //   joint2_status == Status::COMPLETE &&
-  //   stage_status == Status::COMPLETE;
-
-  // return complete ? Status::COMPLETE : Status::ACTIVE;
   return Status::ACTIVE;
 }
 
 Status calibrateControl() {
+
   open_gripper();
 
-  int CALIB_SPEED = 1500;
+  unsigned long k_calibration_delay = 1000UL;
 
-  while(true) {
-  Serial.print(hw_encoder1.read_angle(), 3);
-  Serial.print("  ");
-  Serial.print(hw_encoder2.read_angle(), 3);
-  Serial.println();
-  }
-
-  // Calibrate first arm
-  while(digitalRead(19) == 0) {
+  // Calibrate linear stage
+  while(digitalRead(11) != HIGH) {
     linear_stage.pulse_up_once();
-    hw_clock.sleep((int)(CALIB_SPEED / 5));
+    hw_clock.sleep(k_calibration_delay);
   }
+  linear_stage.bad_calibrate(26.3);
 
-  hw_stepper1.set_direction_forward();
-  hw_stepper2.set_direction_forward();
-  while(digitalRead(14) == 0) {
-    joint1.pulse_once();
-    joint2.pulse_once();
-    hw_clock.sleep(CALIB_SPEED);
-  }
+  // Calibrate joint 1
   hw_stepper1.set_direction_backward();
   hw_stepper2.set_direction_backward();
-
-  for(int i = 0; i < 739; i++) {
+  while(digitalRead(14) != HIGH) {
     joint1.pulse_once();
     joint2.pulse_once();
-    hw_clock.sleep(CALIB_SPEED);
+    hw_clock.sleep(k_calibration_delay);
   }
-  joint2.bad_calibrate();
-  hw_clock.sleep(CALIB_SPEED*10);
-  Serial.print("Calibrated J2 at: ");
-  Serial.println(joint2.read_position());
+  joint1.calibrate(-1, -0.2617);
+  hw_clock.sleep(100000UL);
 
-  // Now second arm
-  while(digitalRead(10) == 0) {
-    joint1.pulse_once();
-    joint2.pulse_once();
-    hw_clock.sleep(CALIB_SPEED);
-  }
+  // Calibrate joint 2
   hw_stepper1.set_direction_forward();
   hw_stepper2.set_direction_forward();
-  for(int i = 0; i < 739; i++) {
+  while(digitalRead(10) != HIGH) {
     joint1.pulse_once();
     joint2.pulse_once();
-    hw_clock.sleep(CALIB_SPEED);
+    hw_clock.sleep(k_calibration_delay);
   }
-  joint1.bad_calibrate();
-  hw_clock.sleep(CALIB_SPEED*10);
-  Serial.print("Calibrated J1 at: ");
-  Serial.println(joint1.read_position());
-  
+  float joint2_pos = k_pi + 0.2617;
+  joint2.calibrate(3, joint2_pos);
+  hw_clock.sleep(100000UL);
 
+  // Set home setpoint
   replace_setpoint(HOME_J1, HOME_J2, HOME_Z, k_tolerance, k_joint_velocity);
+
+  // Activate the control loop
   state.callback = activeControl;
   return Status::ACTIVE;
 }
@@ -222,7 +179,6 @@ void setup()
   servo.attach(SERVO_PIN);
 
   open_gripper();
-
 }
 
 void loop()

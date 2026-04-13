@@ -27,7 +27,7 @@ class Stepper : public StepperInterface
      */
     inline void set_direction_forward() override
     {
-      digitalWrite(direction_pin, HIGH);
+      digitalWrite(direction_pin, LOW);
     }
 
     /**
@@ -35,7 +35,7 @@ class Stepper : public StepperInterface
      */
     inline void set_direction_backward() override
     {
-      digitalWrite(direction_pin, LOW);
+      digitalWrite(direction_pin, HIGH);
     }
 
     /**

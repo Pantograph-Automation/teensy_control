@@ -34,15 +34,17 @@ class Joint {
 
     /**
      * @brief Calibrate the joint at a specified angle
-     * @param rotations The number of rollovers the encoder has experienced at the calibration point
+     * @param rollovers The number of rollovers the encoder has experienced at the calibration point
      * @param position The absolute position of the joint (in radians) at the calibration point
      */
-    inline void calibrate(int rotations, float position) {
+    inline void calibrate(int rollovers, float position) {
 
       last_encoder_reading = _encoder->sample(50);
-      this->rotations = rotations;
+      this->rollovers = rollovers;
 
-      offset = 2*k_pi*rotations - last_encoder_reading*k_joint_gear_ratio - position;
+      float measured_position = (2.0*k_pi*rollovers + last_encoder_reading) / k_joint_gear_ratio;
+
+      offset = position - measured_position;
 
     }
 
@@ -50,6 +52,7 @@ class Joint {
      * @brief Pulse the joint stepper motor once
      */
     inline void pulse_once() {
+      read_position(); // ensure that the rollovers are updated
       _stepper->set_high();
       _clock->sleep(k_min_pulse_width);
       _stepper->set_low();
@@ -97,22 +100,22 @@ class Joint {
 
       return Status::ACTIVE;
     }
+
     
     inline float read_position() {
-      
-      float current_encoder_reading = _encoder->read_angle();
 
+      float current_encoder_reading = _encoder->read_angle();
       float delta = current_encoder_reading - last_encoder_reading;
 
-      if (delta < -k_pi) { rotations += 1; }
-      else if (delta > k_pi) { rotations -= 1; }
+      if (delta < -k_pi) { rollovers += 1; }
+      else if (delta > k_pi) { rollovers -= 1; }
 
       last_encoder_reading = current_encoder_reading;
-
-      const float total_motor_angle =
-        (rotations * 2.0f * k_pi) + current_encoder_reading  offset;
-      return total_motor_angle / k_joint_gear_ratio;
+      const float encoder_angle = 2.0*k_pi*rollovers + current_encoder_reading;
+      
+      return (encoder_angle / k_joint_gear_ratio) + offset;
     }
+
 
   private:
     // Hardware interfaces
@@ -120,11 +123,12 @@ class Joint {
     EncoderInterface* _encoder;
     ClockInterface* _clock;
 
-    // Positioning variables set at calibration
-    int rotations = 0;
+    /** @brief The number of rollovers the encoder has experienced */
+    int rollovers = 0;
+    /** @brief The joint-space calibration offset */
     float offset;
    
-    // Edge tracking information
+    // Edge tracking
     bool is_high = true;
     float last_encoder_reading;
     float last_position;

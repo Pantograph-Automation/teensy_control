@@ -45,17 +45,19 @@ class Stage {
 
     inline void pulse_up_once() {
       _stepper->set_direction_forward();
+
       _stepper->set_high();
       _clock->sleep(Z_MIN_PULSE_WIDTH);
-      _stepper->set_high();
+      _stepper->set_low();
       _clock->sleep(Z_MIN_PULSE_WIDTH);
     }
 
     inline void pulse_down_once() {
       _stepper->set_direction_backward();
+
       _stepper->set_high();
       _clock->sleep(Z_MIN_PULSE_WIDTH);
-      _stepper->set_high();
+      _stepper->set_low();
       _clock->sleep(Z_MIN_PULSE_WIDTH);
     }
 

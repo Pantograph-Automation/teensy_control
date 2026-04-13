@@ -41,8 +41,9 @@ class Encoder : public EncoderInterface
     inline float sample(const unsigned int num) override
     {
       float reading = 0.0f;
-      for (int i = 0; i < num; ++i) {
+      for (unsigned int i = 0; i < num; ++i) {
         reading += read_angle();
+        delayMicroseconds(20);
       }
       return reading / (float) num;
     };
