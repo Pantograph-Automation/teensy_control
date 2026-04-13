@@ -76,15 +76,24 @@ class Joint {
       if(dt < k_min_pulse_width) { 
         return Status::ACTIVE;
       }
-            
+
       // Check if within tolerance
       float current_position = read_position();
-      if(abs(position - current_position) <= tolerance) { 
+      float error = position - current_position;
+      if(abs(error) <= tolerance) { 
         return Status::COMPLETE;
+      } 
+      
+      // Set direction
+      if (error < 0.0) {
+        _stepper->set_direction_backward();
+      } else {
+        _stepper->set_direction_forward();
       }
       
       // Check if past allowed velocity
-      float current_velocity = abs((current_position - last_position) / dt);
+      float dt_s = dt*1e-6;
+      float current_velocity = abs(k_rad_per_step / dt_s);
       if(current_velocity >= velocity) {
         return Status::ACTIVE;
       }
@@ -92,10 +101,12 @@ class Joint {
       // Transfer edge
       if(is_high) {
         _stepper->set_low();
-        last_falling_edge = t;      
+        last_falling_edge = t;   
+        is_high = false;   
       } else {
         _stepper->set_high();
         last_rising_edge = t;
+        is_high = true;
       }
 
       return Status::ACTIVE;

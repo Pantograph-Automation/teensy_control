@@ -14,8 +14,8 @@
 #include "joint.hpp"
 #include "stage.hpp"
 
-constexpr float k_tolerance = 0.01f;
-constexpr float k_joint_velocity = 3.5f;
+constexpr float k_tolerance = 0.02f;
+constexpr float k_joint_velocity = 6.0f;
 constexpr float k_joint_acceleration = 100.0f;
 
 Clock hw_clock;
@@ -69,12 +69,9 @@ inline void replace_setpoint(
 }
 
 Status activeControl() {
-  const unsigned long now_us = hw_clock.microseconds();
 
-  Serial.print(joint1.read_position(), 3);
-  Serial.print("  ");
-  Serial.print(joint2.read_position(), 3);
-  Serial.println();
+  joint1.pulse_edge(state.setpoint->q1, state.setpoint->velocity, state.setpoint->tolerance);
+  joint2.pulse_edge(state.setpoint->q2, state.setpoint->velocity, state.setpoint->tolerance);
 
   if (current_gripper_state != commanded_gripper_state) {
     if (commanded_gripper_state == false) { open_gripper(); }
@@ -108,7 +105,7 @@ Status calibrateControl() {
     hw_clock.sleep(k_calibration_delay);
   }
   joint1.calibrate(-1, -0.2617);
-  hw_clock.sleep(100000UL);
+  hw_clock.sleep(10000UL);
 
   // Calibrate joint 2
   hw_stepper1.set_direction_forward();
@@ -120,7 +117,7 @@ Status calibrateControl() {
   }
   float joint2_pos = k_pi + 0.2617;
   joint2.calibrate(3, joint2_pos);
-  hw_clock.sleep(100000UL);
+  hw_clock.sleep(10000UL);
 
   // Set home setpoint
   replace_setpoint(HOME_J1, HOME_J2, HOME_Z, k_tolerance, k_joint_velocity);
