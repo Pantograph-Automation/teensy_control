@@ -8,11 +8,11 @@
 #include "lifecycle.hpp"
 
 
-#define RAD_PER_STEP 0.003926991f
-#define PULSE_WIDTH_US 20UL
+constexpr float k_rad_per_step = 0.003926991f;
+constexpr unsigned long k_min_pulse_width = 20UL;
 constexpr float k_pi = 3.14159265358979323846f;
 constexpr float k_joint_gear_ratio = 5.0f;
-constexpr float k_joint_rad_per_step = RAD_PER_STEP / k_joint_gear_ratio;
+constexpr float k_joint_rad_per_step = k_rad_per_step / k_joint_gear_ratio;
 
 class Joint {
   public:
@@ -20,55 +20,79 @@ class Joint {
     Joint(StepperInterface* stepper, EncoderInterface* encoder, ClockInterface* clock)
       : _stepper(stepper), _encoder(encoder), _clock(clock) {}
 
+    /**
+     * @brief Initialize the joint
+     */
     inline void begin() {
       _encoder->begin();
       _stepper->set_high();
-      last_pulse_time = _clock->microseconds();
+
+      unsigned long current_time = _clock->microseconds();
+      last_falling_edge = current_time;
+      last_rising_edge = current_time;
     }
 
-    inline void bad_calibrate() {
+    /**
+     * @brief Calibrate the joint at a specified angle
+     * @param rotations The number of rollovers the encoder has experienced at the calibration point
+     * @param position The absolute position of the joint (in radians) at the calibration point
+     */
+    inline void calibrate(int rotations, float position) {
 
-      last_encoder_reading = 0.5*_encoder->read_angle() + 0.5*_encoder->read_angle();
-   
-      rotations = 1;
-      offset = last_encoder_reading - (0.5f * k_pi);
+      last_encoder_reading = _encoder->sample(50);
+      this->rotations = rotations;
+
+      offset = 2*k_pi*rotations - last_encoder_reading*k_joint_gear_ratio - position;
 
     }
 
+    /**
+     * @brief Pulse the joint stepper motor once
+     */
     inline void pulse_once() {
       _stepper->set_high();
-      _clock->sleep(PULSE_WIDTH_US);
+      _clock->sleep(k_min_pulse_width);
       _stepper->set_low();
-      _clock->sleep(PULSE_WIDTH_US);
+      _clock->sleep(k_min_pulse_width);
     }
 
-    inline Status pulse_if_required(float target_angle, float tolerance, float joint_vel) {
+    /**
+     * @brief Transfer the pulse edge from high to low (or vice versa) if needed
+     * @param angle The joint target angle
+     * @param velocity The target joint velocity
+     * @param tolerance The deadband tolerance for the joint
+     * @details The stepper pulse pin should be normally high
+     */
+    inline Status pulse_edge(float position, float velocity, float tolerance) {
 
-      float error = target_angle - read_position();
-
-      if (error >= tolerance) {
-        _stepper->set_direction_backward();
+      // Check if edge transfer allowed
+      unsigned long t = _clock->microseconds();
+      unsigned long dt = is_high
+        ? t - last_falling_edge
+        : t - last_rising_edge;
+      if(dt < k_min_pulse_width) { 
+        return Status::ACTIVE;
       }
-      else if (error <= -tolerance)
-      {
-        _stepper->set_direction_forward();
+            
+      // Check if within tolerance
+      float current_position = read_position();
+      if(abs(position - current_position) <= tolerance) { 
+        return Status::COMPLETE;
       }
-      else { return Status::COMPLETE; }
-
-      unsigned long dt = _clock->microseconds() - last_pulse_time;
-      if (joint_vel <= 0.0f) {
-        joint_vel = 1.0f;
+      
+      // Check if past allowed velocity
+      float current_velocity = abs((current_position - last_position) / dt);
+      if(current_velocity >= velocity) {
+        return Status::ACTIVE;
       }
 
-      const unsigned long required_period_us =
-        static_cast<unsigned long>((k_joint_rad_per_step / joint_vel) * 1000000.0f);
-
-      if (dt >= required_period_us)
-      {
+      // Transfer edge
+      if(is_high) {
         _stepper->set_low();
-        _clock->sleep(PULSE_WIDTH_US);
+        last_falling_edge = t;      
+      } else {
         _stepper->set_high();
-        last_pulse_time = _clock->microseconds();
+        last_rising_edge = t;
       }
 
       return Status::ACTIVE;
@@ -77,6 +101,7 @@ class Joint {
     inline float read_position() {
       
       float current_encoder_reading = _encoder->read_angle();
+
       float delta = current_encoder_reading - last_encoder_reading;
 
       if (delta < -k_pi) { rotations += 1; }
@@ -85,25 +110,25 @@ class Joint {
       last_encoder_reading = current_encoder_reading;
 
       const float total_motor_angle =
-        (rotations * 2.0f * k_pi) + current_encoder_reading - offset;
+        (rotations * 2.0f * k_pi) + current_encoder_reading  offset;
       return total_motor_angle / k_joint_gear_ratio;
     }
 
-    inline float _read_position() {
-      return read_position();
-    }
-
   private:
+    // Hardware interfaces
     StepperInterface* _stepper;
     EncoderInterface* _encoder;
     ClockInterface* _clock;
 
-
+    // Positioning variables set at calibration
     int rotations = 0;
-    bool pulse = false;
-    unsigned long last_pulse_time;
-    float last_encoder_reading;
     float offset;
+   
+    // Edge tracking information
+    bool is_high = true;
+    float last_encoder_reading;
+    float last_position;
+    unsigned long last_rising_edge = 0;
+    unsigned long last_falling_edge = 0;
 
-    
 };

@@ -5,4 +5,5 @@ public:
     virtual ~EncoderInterface() = default;
     virtual void begin() = 0;
     virtual float read_angle() = 0;
+    virtual float sample(const unsigned int num) = 0;
 };

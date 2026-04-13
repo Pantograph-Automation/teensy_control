@@ -35,6 +35,18 @@ class Encoder : public EncoderInterface
       return as5600.rawAngle() * AS5600_RAW_TO_RADIANS;
     };
 
+    /**
+     * @brief Sample the average of a set of readings for better accuracy
+     */
+    inline float sample(const unsigned int num) override
+    {
+      float reading = 0.0f;
+      for (int i = 0; i < num; ++i) {
+        reading += read_angle();
+      }
+      return reading / (float) num;
+    };
+
   private:
     TwoWire* wire;
     AS5600 as5600;

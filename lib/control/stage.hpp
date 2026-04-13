@@ -4,9 +4,9 @@
 #include "clock_interface.hpp"
 #include "lifecycle.hpp"
 
-#define Z_PULSE_WIDTH_US 50UL
 #define STEPS_PER_METER 400000
 #define Z_TOLERANCE 0.0005f
+#define Z_MIN_PULSE_WIDTH 20UL 
 
 class Stage {
   public:
@@ -46,17 +46,17 @@ class Stage {
     inline void pulse_up_once() {
       _stepper->set_direction_forward();
       _stepper->set_high();
-      _clock->sleep(PULSE_WIDTH_US);
+      _clock->sleep(Z_MIN_PULSE_WIDTH);
       _stepper->set_high();
-      _clock->sleep(PULSE_WIDTH_US);
+      _clock->sleep(Z_MIN_PULSE_WIDTH);
     }
 
     inline void pulse_down_once() {
       _stepper->set_direction_backward();
       _stepper->set_high();
-      _clock->sleep(PULSE_WIDTH_US);
+      _clock->sleep(Z_MIN_PULSE_WIDTH);
       _stepper->set_high();
-      _clock->sleep(PULSE_WIDTH_US);
+      _clock->sleep(Z_MIN_PULSE_WIDTH);
     }
 
     /**
@@ -73,9 +73,9 @@ class Stage {
 
     inline void _pulse() {
       _stepper->set_high();
-      _clock->sleep(Z_PULSE_WIDTH_US);
+      _clock->sleep(Z_MIN_PULSE_WIDTH);
       _stepper->set_low();
-      _clock->sleep(Z_PULSE_WIDTH_US);
+      _clock->sleep(Z_MIN_PULSE_WIDTH);
     }
 
 };

@@ -18,20 +18,21 @@ constexpr float k_tolerance = 0.01f;
 constexpr float k_joint_velocity = 3.5f;
 constexpr float k_joint_acceleration = 100.0f;
 
-#define PULSE1 4
-#define DIR1 5
-#define HOME_J1 2.08f
 Clock hw_clock;
-HardwareSerialAdapter hw_serial;
 
-Encoder hw_encoder1(&Wire);
+#define PULSE1 22
+#define DIR1 21
+#define HOME_J1 1.10f
+Encoder hw_encoder1(&Wire1);
 Stepper hw_stepper1(PULSE1, DIR1);
 Joint joint1(&hw_stepper1, &hw_encoder1, &hw_clock);
 
-#define PULSE2 22 // 2 IS PULSE LINEAR RAIL
-#define DIR2 21 // 3 IS DIR LINEAR RAIL
-#define HOME_J2 1.10f
-Encoder hw_encoder2(&Wire1);
+#define PULSE2 4
+#define DIR2 5
+#define HOME_J2 2.08f
+HardwareSerialAdapter hw_serial;
+
+Encoder hw_encoder2(&Wire);
 Stepper hw_stepper2(PULSE2, DIR2);
 Joint joint2(&hw_stepper2, &hw_encoder2, &hw_clock);
 
@@ -70,36 +71,27 @@ inline void replace_setpoint(
 Status activeControl() {
   const unsigned long now_us = hw_clock.microseconds();
 
-  if (state.setpoint_dirty) {
-    state.plan_rotary_trajectory(
-      joint1.read_position(),
-      joint2.read_position(),
-      k_joint_velocity,
-      k_joint_acceleration,
-      now_us);
-  }
+  // if (state.setpoint == nullptr) {
+  //   if (current_gripper_state != commanded_gripper_state) {
+  //     if (commanded_gripper_state == false) { open_gripper(); }
+  //     else { close_gripper(); }
 
-  if (state.setpoint == nullptr) {
-    if (current_gripper_state != commanded_gripper_state) {
-      if (commanded_gripper_state == false) { open_gripper(); }
-      else { close_gripper(); }
+  //     current_gripper_state = commanded_gripper_state;
+  //   }
 
-      current_gripper_state = commanded_gripper_state;
-    }
+  //   return Status::COMPLETE;
+  // }
 
-    return Status::COMPLETE;
-  }
+  // const RotaryWaypoint waypoint = state.sample_rotary_waypoint(now_us);
+  // const Status joint1_status =
+  //   joint1.pulse_edge(waypoint.q1, fabs(waypoint.v1), state.setpoint->tolerance);
+  // const Status joint2_status =
+  //   joint2.pulse_edge(waypoint.q2, fabs(waypoint.v2), state.setpoint->tolerance);
+  // const Status stage_status = linear_stage.pulse_if_required(state.setpoint->z);
 
-  const RotaryWaypoint waypoint = state.sample_rotary_waypoint(now_us);
-  const Status joint1_status =
-    joint1.pulse_if_required(waypoint.q1, state.setpoint->tolerance, fabs(waypoint.v1));
-  const Status joint2_status =
-    joint2.pulse_if_required(waypoint.q2, state.setpoint->tolerance, fabs(waypoint.v2));
-  const Status stage_status = linear_stage.pulse_if_required(state.setpoint->z);
-
-  Serial.print(joint1._read_position(), 3);
+  Serial.print(joint1.read_position(), 3);
   Serial.print("  ");
-  Serial.print(joint2._read_position(), 3);
+  Serial.print(joint2.read_position(), 3);
   Serial.println();
 
   if (current_gripper_state != commanded_gripper_state) {
@@ -109,19 +101,27 @@ Status activeControl() {
     current_gripper_state = commanded_gripper_state;
   }
 
-  const bool complete =
-    state.rotary_trajectory_complete(now_us) &&
-    joint1_status == Status::COMPLETE &&
-    joint2_status == Status::COMPLETE &&
-    stage_status == Status::COMPLETE;
+  // const bool complete =
+  //   state.rotary_trajectory_complete(now_us) &&
+  //   joint1_status == Status::COMPLETE &&
+  //   joint2_status == Status::COMPLETE &&
+  //   stage_status == Status::COMPLETE;
 
-  return complete ? Status::COMPLETE : Status::ACTIVE;
+  // return complete ? Status::COMPLETE : Status::ACTIVE;
+  return Status::ACTIVE;
 }
 
 Status calibrateControl() {
   open_gripper();
 
   int CALIB_SPEED = 1500;
+
+  while(true) {
+  Serial.print(hw_encoder1.read_angle(), 3);
+  Serial.print("  ");
+  Serial.print(hw_encoder2.read_angle(), 3);
+  Serial.println();
+  }
 
   // Calibrate first arm
   while(digitalRead(19) == 0) {
