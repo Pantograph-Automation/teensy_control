@@ -14,8 +14,8 @@
 #include "joint.hpp"
 #include "stage.hpp"
 
-constexpr float k_tolerance = 0.02f;
-constexpr float k_joint_velocity = 6.0f;
+constexpr float k_tolerance = 0.005f;
+constexpr float k_joint_velocity = 10.0f;
 constexpr float k_joint_acceleration = 100.0f;
 
 Clock hw_clock;
@@ -70,13 +70,14 @@ inline void replace_setpoint(
 
 Status activeControl() {
 
+  
   joint1.pulse_edge(state.setpoint->q1, state.setpoint->velocity, state.setpoint->tolerance);
   joint2.pulse_edge(state.setpoint->q2, state.setpoint->velocity, state.setpoint->tolerance);
 
+  // Check gripper state, move if neccessary
   if (current_gripper_state != commanded_gripper_state) {
     if (commanded_gripper_state == false) { open_gripper(); }
     else { close_gripper(); }
-
     current_gripper_state = commanded_gripper_state;
   }
 

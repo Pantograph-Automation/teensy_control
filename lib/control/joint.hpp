@@ -7,9 +7,8 @@
 #include "stepper_interface.hpp"
 #include "lifecycle.hpp"
 
-
 constexpr float k_rad_per_step = 0.003926991f;
-constexpr unsigned long k_min_pulse_width = 20UL;
+constexpr unsigned long k_min_pulse_width = 5UL;
 constexpr float k_pi = 3.14159265358979323846f;
 constexpr float k_joint_gear_ratio = 5.0f;
 constexpr float k_joint_rad_per_step = k_rad_per_step / k_joint_gear_ratio;
@@ -71,8 +70,8 @@ class Joint {
       // Check if edge transfer allowed
       unsigned long t = _clock->microseconds();
       unsigned long dt = is_high
-        ? t - last_falling_edge
-        : t - last_rising_edge;
+        ? t - last_rising_edge
+        : t - last_falling_edge;
       if(dt < k_min_pulse_width) { 
         return Status::ACTIVE;
       }
@@ -93,7 +92,7 @@ class Joint {
       
       // Check if past allowed velocity
       float dt_s = dt*1e-6;
-      float current_velocity = abs(k_rad_per_step / dt_s);
+      float current_velocity = abs(k_joint_rad_per_step / dt_s) / 2.0f;
       if(current_velocity >= velocity) {
         return Status::ACTIVE;
       }

@@ -25,6 +25,7 @@ class Encoder : public EncoderInterface
       wire->setClock(400000);
       as5600.begin();
       as5600.setDirection(AS5600_CLOCK_WISE);
+      ema_prev = read_angle();
     }
     
     /**
@@ -33,6 +34,15 @@ class Encoder : public EncoderInterface
     inline float read_angle() override
     {
       return as5600.rawAngle() * AS5600_RAW_TO_RADIANS;
+    };
+
+    /**
+     * @brief Returns the encoder value, in radians, with an ema filter applied
+     * @param alpha The smoothing parameter
+     */
+    inline float read_angle(const float alpha) override
+    {
+        return exponential_moving_average(ema_prev, read_angle(), alpha);
     };
 
     /**
@@ -51,6 +61,7 @@ class Encoder : public EncoderInterface
   private:
     TwoWire* wire;
     AS5600 as5600;
+    float ema_prev;
 
 };
 #endif
