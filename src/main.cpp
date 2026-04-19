@@ -17,6 +17,7 @@
 constexpr float k_tolerance = 0.005f;
 constexpr float k_joint_velocity = 10.0f;
 constexpr float k_joint_acceleration = 100.0f;
+constexpr unsigned int k_rate_hz = 1000;
 
 Clock hw_clock;
 
@@ -95,7 +96,7 @@ Status calibrateControl() {
     linear_stage.pulse_up_once();
     hw_clock.sleep(k_calibration_delay);
   }
-  linear_stage.bad_calibrate(26.3);
+  linear_stage.bad_calibrate(0.263);
 
   // Calibrate joint 1
   hw_stepper1.set_direction_backward();
@@ -181,6 +182,8 @@ void setup()
 
 void loop()
 {
+  unsigned long start_time = micros();
+
   if (hw_serial.available()) {
     getSerial();
   }
@@ -193,6 +196,9 @@ void loop()
 
   auto status = state.callback();
   (void)status;
+
+  while((micros() - start_time) < (int)(1e6/k_rate_hz));
+
 }
 
 #else

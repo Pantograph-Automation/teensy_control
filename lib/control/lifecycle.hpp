@@ -76,6 +76,7 @@ class State
       delete setpoint;
       setpoint = new Setpoint(q1, q2, z, tolerance, velocity);
     }
+};
 
 inline const char* processError(Error error)
 {
