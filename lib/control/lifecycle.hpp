@@ -99,9 +99,9 @@ inline const char* processStatus(Status status) {
   switch (status)
   {
     case Status::ACTIVE:
-      return "OK ACTIVE";
+      return "ACTIVE";
     case Status::COMPLETE:
-      return "OK COMPLETE";
+      return "COMPLETE";
     case Status::ERROR:
       return "ERROR Received status in error state";
     default:

@@ -17,7 +17,7 @@
 constexpr float k_tolerance = 0.005f;
 constexpr float k_joint_velocity = 10.0f;
 constexpr float k_joint_acceleration = 100.0f;
-constexpr unsigned int k_rate_hz = 1000;
+constexpr unsigned int k_rate_hz = 2000;
 
 Clock hw_clock;
 
@@ -70,10 +70,9 @@ inline void replace_setpoint(
 }
 
 Status activeControl() {
-
   
-  joint1.pulse_edge(state.setpoint->q1, state.setpoint->velocity, state.setpoint->tolerance);
-  joint2.pulse_edge(state.setpoint->q2, state.setpoint->velocity, state.setpoint->tolerance);
+  Status status1 = joint1.pulse_edge(state.setpoint->q1, state.setpoint->velocity, state.setpoint->tolerance);
+  Status status2 = joint2.pulse_edge(state.setpoint->q2, state.setpoint->velocity, state.setpoint->tolerance);
 
   // Check gripper state, move if neccessary
   if (current_gripper_state != commanded_gripper_state) {
@@ -82,7 +81,12 @@ Status activeControl() {
     current_gripper_state = commanded_gripper_state;
   }
 
-  return Status::ACTIVE;
+  // Return the status
+  return (status1 == Status::ERROR || status2 == Status::ERROR)
+  ? Status::ERROR
+  : ((status1 == Status::ACTIVE || status2 == Status::ACTIVE)
+    ? Status::ACTIVE
+    : Status::COMPLETE);
 }
 
 Status calibrateControl() {
@@ -126,7 +130,7 @@ Status calibrateControl() {
 
   // Activate the control loop
   state.callback = activeControl;
-  return Status::ACTIVE;
+  return Status::COMPLETE;
 }
 
 Status inactiveControl() {
@@ -188,14 +192,15 @@ void loop()
     getSerial();
   }
 
-  if (state.response_due) {
+  if (state.response_due && state.pending_status != Status::ACTIVE) {
     respondSerial(state.pending_status);
     state.response_due = false;
     return;
   }
 
   auto status = state.callback();
-  (void)status;
+  
+  state.pending_status = status;
 
   while((micros() - start_time) < (int)(1e6/k_rate_hz));
 
