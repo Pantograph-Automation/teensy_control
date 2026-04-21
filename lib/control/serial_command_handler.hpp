@@ -46,7 +46,7 @@ public:
     }
 
     if (std::strncmp(message, "GRIPPER OPEN", 12) == 0) {
-      if (is_transition_invalid()) {
+      if (!is_active_control()) {
         return Error::INVALID_TRANSITION;
       }
 
@@ -56,7 +56,7 @@ public:
     }
 
     if (std::strncmp(message, "GRIPPER CLOSE", 13) == 0) {
-      if (is_transition_invalid()) {
+      if (!is_active_control()) {
         return Error::INVALID_TRANSITION;
       }
 
@@ -66,7 +66,7 @@ public:
     }
 
     if (std::strncmp(message, "SETPOINT", 8) == 0) {
-      if (is_transition_invalid()) {
+      if (!is_active_control()) {
         return Error::INVALID_TRANSITION;
       }
 
@@ -114,9 +114,9 @@ public:
 private:
   static constexpr int k_buffer_size = 64;
 
-  inline bool is_transition_invalid() const
+  inline bool is_active_control() const
   {
-    return state_->callback == inactive_control_ || state_->callback == calibrate_control_;
+    return state_->callback != inactive_control_ && state_->callback != calibrate_control_;
   }
   State * state_;
   ClockInterface * clock_;

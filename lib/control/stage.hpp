@@ -5,8 +5,8 @@
 #include "lifecycle.hpp"
 
 #define STEPS_PER_METER 400000
-#define Z_TOLERANCE 0.0005f
-#define Z_MIN_PULSE_WIDTH 20UL 
+#define Z_TOLERANCE 0.001f
+#define Z_MIN_PULSE_WIDTH 40UL 
 
 class Stage {
   public:

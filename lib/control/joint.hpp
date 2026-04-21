@@ -7,8 +7,8 @@
 #include "stepper_interface.hpp"
 #include "lifecycle.hpp"
 
-constexpr float k_rad_per_step = 0.003926991f;
-constexpr unsigned long k_min_pulse_width = 5UL;
+constexpr float k_rad_per_step = 0.0078539816339745;
+constexpr unsigned long k_min_pulse_width = 10UL;
 constexpr float k_pi = 3.14159265358979323846f;
 constexpr float k_joint_gear_ratio = 5.0f;
 constexpr float k_joint_rad_per_step = k_rad_per_step / k_joint_gear_ratio;
@@ -114,7 +114,7 @@ class Joint {
     
     inline float read_position() {
 
-      float current_encoder_reading = _encoder->read_angle();
+      float current_encoder_reading = _encoder->read_angle(0.1f);
       float delta = current_encoder_reading - last_encoder_reading;
 
       if (delta < -k_pi) { rollovers += 1; }

@@ -8,8 +8,6 @@
 
 using ::testing::AnyNumber;
 using ::testing::NiceMock;
-using ::testing::Return;
-
 namespace
 {
 Status fake_inactive_control()
@@ -47,9 +45,8 @@ protected:
 
   void SetUp() override
   {
-    state.callback = fake_inactive_control;
+    state.reset(fake_inactive_control);
     state.error = Error::INVALID_SERIAL;
-    state.setpoint_dirty = false;
   }
 
   void TearDown() override
@@ -74,10 +71,15 @@ protected:
 TEST_F(SerialCommandHandlerTest, ParseSerialActivatesCalibrationFlow)
 {
   state.setpoint = new Setpoint(0.2f, 0.3f, 0.4f, 0.005f, 1.0f);
+  state.error = Error::INVALID_SETPOINT;
+  state.response_due = true;
 
   EXPECT_EQ(handler.parse_serial("ACTIVATE"), Error::OK);
   EXPECT_EQ(state.callback, fake_calibrate_control);
   EXPECT_EQ(state.setpoint, nullptr);
+  EXPECT_EQ(state.error, Error::OK);
+  EXPECT_FALSE(state.response_due);
+  EXPECT_EQ(state.pending_status, Status::ACTIVE);
 }
 
 // Verifies a valid setpoint retargets the joint trajectories and updates the active setpoint payload.
@@ -88,7 +90,7 @@ TEST_F(SerialCommandHandlerTest, ParseSerialAcceptsValidSetpointWhenActive)
 
   EXPECT_EQ(handler.parse_serial("SETPOINT 1.0 -0.5 0.2"), Error::OK);
   ASSERT_NE(state.setpoint, nullptr);
-  EXPECT_TRUE(state.setpoint_dirty);
+  EXPECT_EQ(state.pending_status, Status::ACTIVE);
   EXPECT_FLOAT_EQ(state.setpoint->q1, 1.0f);
   EXPECT_FLOAT_EQ(state.setpoint->q2, -0.5f);
   EXPECT_FLOAT_EQ(state.setpoint->z, 0.2f);
@@ -109,6 +111,22 @@ TEST_F(SerialCommandHandlerTest, ParseSerialRejectsInvalidGripperTransition)
 
   EXPECT_EQ(handler.parse_serial("GRIPPER OPEN"), Error::INVALID_TRANSITION);
   EXPECT_TRUE(commanded_gripper_state);
+
+  state.callback = fake_calibrate_control;
+
+  EXPECT_EQ(handler.parse_serial("GRIPPER OPEN"), Error::INVALID_TRANSITION);
+  EXPECT_TRUE(commanded_gripper_state);
+}
+
+// Verifies gripper commands are accepted once activation has completed and the controller is active.
+TEST_F(SerialCommandHandlerTest, ParseSerialAcceptsGripperCommandWhenActive)
+{
+  state.callback = fake_active_control;
+  commanded_gripper_state = false;
+
+  EXPECT_EQ(handler.parse_serial("GRIPPER CLOSE"), Error::OK);
+  EXPECT_TRUE(commanded_gripper_state);
+  EXPECT_EQ(state.pending_status, Status::ACTIVE);
 }
 
 // Verifies unrecognized commands preserve the existing protocol contract by reporting an invalid serial message.
@@ -154,7 +172,7 @@ TEST_F(SerialCommandHandlerTest, GetSerialParsesMultipleMessagesSequentially)
 TEST_F(SerialCommandHandlerTest, RespondSerialPrintsStatusOrErrorMessage)
 {
   state.error = Error::OK;
-  EXPECT_CALL(mock_serial, println(::testing::StrEq("OK ACTIVE")));
+  EXPECT_CALL(mock_serial, println(::testing::StrEq("ACTIVE")));
   handler.respond_serial(&mock_serial, Status::ACTIVE);
 
   state.error = Error::INVALID_SETPOINT;
