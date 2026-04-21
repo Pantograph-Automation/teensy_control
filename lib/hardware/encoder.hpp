@@ -37,15 +37,6 @@ class Encoder : public EncoderInterface
     };
 
     /**
-     * @brief Returns the encoder value, in radians, with an ema filter applied
-     * @param alpha The smoothing parameter
-     */
-    inline float read_angle(const float alpha) override
-    {
-        return exponential_moving_average(ema_prev, read_angle(), alpha);
-    };
-
-    /**
      * @brief Sample the average of a set of readings for better accuracy
      */
     inline float sample(const unsigned int num) override

@@ -114,7 +114,7 @@ class Joint {
     
     inline float read_position() {
 
-      float current_encoder_reading = _encoder->read_angle(0.1f);
+      float current_encoder_reading = _encoder->read_angle();
       float delta = current_encoder_reading - last_encoder_reading;
 
       if (delta < -k_pi) { rollovers += 1; }

@@ -14,7 +14,7 @@
 #include "joint.hpp"
 #include "stage.hpp"
 
-constexpr float k_tolerance = 0.01f;
+constexpr float k_tolerance = 0.02f;
 constexpr float k_joint_velocity = 3.14159f;
 constexpr float k_joint_acceleration = 100.0f;
 constexpr unsigned int k_rate_hz = 3000;
@@ -48,7 +48,9 @@ Servo servo;
 bool current_gripper_state = false; // HACK: Tracking gripper with two bools??
 bool commanded_gripper_state = false; // false is open, true is closed
 void close_gripper () {
-  servo.write(45);
+  servo.attach(SERVO_PIN);
+  delay(10);
+  servo.write(38);
   delay(100);
   current_gripper_state = true;
 }
@@ -57,6 +59,7 @@ void open_gripper () {
   servo.write(15);
   delay(100);
   current_gripper_state = false;
+  servo.detach();
 }
 
 State state;
@@ -92,6 +95,7 @@ Status activeControl() {
 
 Status calibrateControl() {
 
+  servo.attach(SERVO_PIN);
   open_gripper();
 
   unsigned long k_calibration_delay = 800UL;
@@ -183,11 +187,6 @@ void setup()
   joint1.begin();
   joint2.begin();
 
-  servo.attach(SERVO_PIN);
-
-  commanded_gripper_state = false;
-  open_gripper();
-  current_gripper_state = false;
 }
 
 void loop()
