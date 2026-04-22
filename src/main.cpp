@@ -39,7 +39,7 @@ Joint joint2(&hw_stepper2, &hw_encoder2, &hw_clock);
 
 #define PULSE3 2
 #define DIR3 3
-#define HOME_Z 0.1f
+#define HOME_Z 0.25f
 Stepper hw_stepper3(PULSE3, DIR3);
 Stage linear_stage(&hw_stepper3, &hw_clock);
 
@@ -56,7 +56,7 @@ void close_gripper () {
 }
 
 void open_gripper () {
-  servo.write(15);
+  servo.write(20);
   delay(100);
   current_gripper_state = false;
   servo.detach();
