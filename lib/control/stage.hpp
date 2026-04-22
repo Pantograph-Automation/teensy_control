@@ -6,8 +6,8 @@
 
 #define STEPS_PER_METER 50000
 #define Z_TOLERANCE 0.0002f
-#define Z_VELOCITY 0.05f // meters per second
-#define Z_MIN_PULSE_WIDTH 40UL 
+#define Z_VELOCITY 0.03f // meters per second
+#define Z_MIN_PULSE_WIDTH 50UL 
 
 class Stage {
   public:

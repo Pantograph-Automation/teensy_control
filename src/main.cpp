@@ -14,7 +14,7 @@
 #include "joint.hpp"
 #include "stage.hpp"
 
-constexpr float k_tolerance = 0.02f;
+constexpr float k_tolerance = 0.035f;
 constexpr float k_joint_velocity = 3.14159f;
 constexpr float k_joint_acceleration = 100.0f;
 constexpr unsigned int k_rate_hz = 3000;
