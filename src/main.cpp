@@ -39,7 +39,7 @@ Joint joint2(&hw_stepper2, &hw_encoder2, &hw_clock);
 
 #define PULSE3 2
 #define DIR3 3
-#define HOME_Z 0.05f
+#define HOME_Z 0.1f
 Stepper hw_stepper3(PULSE3, DIR3);
 Stage linear_stage(&hw_stepper3, &hw_clock);
 
@@ -78,6 +78,7 @@ Status activeControl() {
   
   Status status1 = joint1.pulse_edge(state.setpoint->q1, state.setpoint->velocity, state.setpoint->tolerance);
   Status status2 = joint2.pulse_edge(state.setpoint->q2, state.setpoint->velocity, state.setpoint->tolerance);
+  Status status3 = linear_stage.pulse_edge(state.setpoint->z);
 
   // Check gripper state, move if neccessary
   if (current_gripper_state != commanded_gripper_state) {
@@ -86,9 +87,9 @@ Status activeControl() {
   }
 
   // Return the status
-  return (status1 == Status::ERROR || status2 == Status::ERROR)
+  return (status1 == Status::ERROR || status2 == Status::ERROR || status3 == Status::ERROR)
   ? Status::ERROR
-  : ((status1 == Status::ACTIVE || status2 == Status::ACTIVE)
+  : ((status1 == Status::ACTIVE || status2 == Status::ACTIVE || status3 == Status::ACTIVE)
     ? Status::ACTIVE
     : Status::COMPLETE);
 }
@@ -106,7 +107,7 @@ Status calibrateControl() {
     linear_stage.pulse_up_once();
     hw_clock.sleep(k_z_calibration_delay);
   }
-  linear_stage.bad_calibrate(0.263);
+  linear_stage.bad_calibrate(0.272);
 
   // Calibrate joint 1
   hw_stepper1.set_direction_backward();
