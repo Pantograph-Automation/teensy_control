@@ -17,16 +17,14 @@ public:
     StatusCallback inactive_control,
     StatusCallback calibrate_control,
     float tolerance,
-    float joint_velocity,
-    float joint_acceleration)
+    float joint_velocity)
   : state_(state),
     clock_(clock),
     commanded_gripper_state_(commanded_gripper_state),
     inactive_control_(inactive_control),
     calibrate_control_(calibrate_control),
     tolerance_(tolerance),
-    joint_velocity_(joint_velocity),
-    joint_acceleration_(joint_acceleration)
+    joint_velocity_(joint_velocity)
   {
     serial_buffer_[0] = '\0';
   }
@@ -125,7 +123,6 @@ private:
   StatusCallback calibrate_control_;
   float tolerance_;
   float joint_velocity_;
-  float joint_acceleration_;
   char serial_buffer_[k_buffer_size];
   int serial_buffer_index_ = 0;
 };

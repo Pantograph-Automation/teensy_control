@@ -15,9 +15,7 @@
 #include "stage.hpp"
 
 constexpr float k_tolerance = 0.035f;
-constexpr float k_joint_velocity = 3.14159f;
-constexpr float k_joint_acceleration = 100.0f;
-constexpr unsigned int k_rate_hz = 3000;
+constexpr float k_joint_velocity = 3.0 * k_pi / 4.0f;
 
 Clock hw_clock;
 
@@ -39,7 +37,7 @@ Joint joint2(&hw_stepper2, &hw_encoder2, &hw_clock);
 
 #define PULSE3 2
 #define DIR3 3
-#define HOME_Z 0.25f
+#define HOME_Z 0.22f
 Stepper hw_stepper3(PULSE3, DIR3);
 Stage linear_stage(&hw_stepper3, &hw_clock);
 
@@ -47,6 +45,7 @@ Stage linear_stage(&hw_stepper3, &hw_clock);
 Servo servo;
 bool current_gripper_state = false; // HACK: Tracking gripper with two bools??
 bool commanded_gripper_state = false; // false is open, true is closed
+
 void close_gripper () {
   servo.attach(SERVO_PIN);
   delay(10);
@@ -151,8 +150,7 @@ SerialCommandHandler serial_command_handler(
   inactiveControl,
   calibrateControl,
   k_tolerance,
-  k_joint_velocity,
-  k_joint_acceleration);
+  k_joint_velocity);
 
 /**
  * @brief Parse an incoming serial message
@@ -192,7 +190,7 @@ void setup()
 
 void loop()
 {
-  unsigned long start_time = micros();
+  // unsigned long start_time = micros();
 
   if (hw_serial.available()) {
     getSerial();
@@ -207,8 +205,6 @@ void loop()
   auto status = state.callback();
   
   state.pending_status = status;
-
-  while((micros() - start_time) < (int)(1e6/k_rate_hz));
 
 }
 

@@ -4,10 +4,10 @@
 #include "clock_interface.hpp"
 #include "lifecycle.hpp"
 
-#define STEPS_PER_METER 50000
+#define STEPS_PER_METER 100000
 #define Z_TOLERANCE 0.0002f
-#define Z_VELOCITY 0.03f // meters per second
-#define Z_MIN_PULSE_WIDTH 50UL 
+#define Z_VELOCITY 0.1f // meters per second
+#define Z_MIN_PULSE_WIDTH 10UL 
 
 class Stage {
   public:
@@ -16,6 +16,20 @@ class Stage {
     inline void bad_calibrate(float position) {
       last_position = position; //m
       current_position = position;
+    }
+
+    inline void transfer_edge() {
+      unsigned long t = _clock->microseconds();
+
+      if(is_high) {
+        _stepper->set_low();
+        last_falling_edge = t;
+        is_high = false;   
+      } else {
+        _stepper->set_high();
+        last_rising_edge = t;
+        is_high = true;
+      }
     }
 
     /**
@@ -58,15 +72,7 @@ class Stage {
       }
 
       // Transfer edge
-      if(is_high) {
-        _stepper->set_low();
-        last_falling_edge = t;
-        is_high = false;   
-      } else {
-        _stepper->set_high();
-        last_rising_edge = t;
-        is_high = true;
-      }
+      transfer_edge();
 
       return Status::ACTIVE;
     }

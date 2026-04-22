@@ -59,6 +59,23 @@ class Joint {
     }
 
     /**
+     * @brief Transfer the stepper pulse edge
+     */
+    inline void transfer_edge() {
+      unsigned long t = _clock->microseconds();
+
+      if(is_high) {
+        _stepper->set_low();
+        last_falling_edge = t;   
+        is_high = false;   
+      } else {
+        _stepper->set_high();
+        last_rising_edge = t;
+        is_high = true;
+      }
+    }
+
+    /**
      * @brief Transfer the pulse edge from high to low (or vice versa) if needed
      * @param angle The joint target angle
      * @param velocity The target joint velocity
@@ -97,16 +114,7 @@ class Joint {
         return Status::ACTIVE;
       }
 
-      // Transfer edge
-      if(is_high) {
-        _stepper->set_low();
-        last_falling_edge = t;   
-        is_high = false;   
-      } else {
-        _stepper->set_high();
-        last_rising_edge = t;
-        is_high = true;
-      }
+      transfer_edge();
 
       return Status::ACTIVE;
     }
