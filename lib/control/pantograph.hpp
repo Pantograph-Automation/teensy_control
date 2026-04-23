@@ -26,7 +26,7 @@ static constexpr float k_z_meters_per_rev = 0.004f;
 static constexpr float k_z_steps_per_meter = k_z_steps_per_rev / k_z_meters_per_rev;
 
 // Motion limiting constants
-static constexpr float k_joint_velocity = 3.0f * k_pi / 4.0f; // rad per second
+static constexpr float k_joint_velocity = 1.25f * k_pi; // rad per second
 static constexpr float k_joint_acceleration = 3.0f*k_pi; // rad per second^2
 static constexpr float k_z_velocity = 0.05f; // meters per second
 static constexpr float k_z_acceleration = 0.1f; // meters per second^2
@@ -36,6 +36,13 @@ static constexpr int32_t k_joint_step_speed = k_joint_velocity * k_joint_steps_p
 static constexpr int32_t k_joint_step_accel = k_joint_acceleration * k_joint_steps_per_rad; // steps per second^2
 static constexpr int32_t k_z_step_speed = k_z_velocity * k_z_steps_per_meter; // meters per second
 static constexpr int32_t k_z_step_accel = k_z_acceleration * k_z_steps_per_meter; // meters per second^2
+
+// Calibration values
+static constexpr float k_joint_calibration_velocity = k_pi / 4.0f; // rad per s
+static constexpr float k_z_calibration_velocity = 0.02f; // meters per s
+static constexpr float k_j1_calibration_pos = -0.2617f;
+static constexpr float k_j2_calibration_pos = k_pi + 0.2617f;
+static constexpr float k_z_calibration_pos = 0.272f;
 
 using namespace TS4;
 
@@ -77,13 +84,13 @@ class Pantograph {
     inline void move(Setpoint* setpoint) {
       
       stepper_1.setTargetAbs(
-        (int32_t)(setpoint->q1 * k_joint_steps_per_rad));
+        (int32_t)((k_j1_calibration_pos - setpoint->q1) * k_joint_steps_per_rad));
 
       stepper_2.setTargetAbs(
-        (int32_t)(setpoint->q2 * k_joint_steps_per_rad));
+        (int32_t)((k_j2_calibration_pos -setpoint->q2) * k_joint_steps_per_rad));
       
       stepper_z.setTargetAbs(
-        (int32_t)(setpoint->z * k_z_steps_per_meter));
+        (int32_t)((k_z_calibration_pos -setpoint->z) * k_z_steps_per_meter));
 
       joint_group.startMove();
       stepper_z.moveAsync();
@@ -96,9 +103,9 @@ class Pantograph {
      * @param vz Z stage velocity (m / s)
      */
     inline void rotate(float v1, float v2, float vz) {
-      if(v1 != 0.0f) { stepper_1.rotateAsync((int32_t)(v1 * k_joint_steps_per_rad)); }
-      if(v2 != 0.0f) { stepper_2.rotateAsync((int32_t)(v2 * k_joint_steps_per_rad)); }
-      if(vz != 0.0f) { stepper_z.rotateAsync((int32_t)(vz * k_z_steps_per_meter)); }
+      if(v1 != 0.0f) { stepper_1.rotateAsync((int32_t)(-v1 * k_joint_steps_per_rad)); }
+      if(v2 != 0.0f) { stepper_2.rotateAsync((int32_t)(-v2 * k_joint_steps_per_rad)); }
+      if(vz != 0.0f) { stepper_z.rotateAsync((int32_t)(-vz * k_z_steps_per_meter)); }
     }
 
     /** @brief Stops any active motion */
@@ -118,15 +125,15 @@ class Pantograph {
 
     /** @brief set stepper 1 position */
     inline void set_pos_j1(float pos) { 
-      set_pos_single_(stepper_1, (int32_t)(pos * k_joint_steps_per_rad)); }
+      set_pos_single_(stepper_1, (int32_t)((k_j1_calibration_pos - pos) * k_joint_steps_per_rad)); }
 
     /** @brief set stepper 2 position */
     inline void set_pos_j2(float pos) { 
-      set_pos_single_(stepper_2, (int32_t)(pos * k_joint_steps_per_rad)); }
+      set_pos_single_(stepper_2, (int32_t)((k_j2_calibration_pos - pos) * k_joint_steps_per_rad)); }
 
     /** @brief set stepper z position */
     inline void set_pos_z(float pos) { 
-      set_pos_single_(stepper_z, (int32_t)(pos * k_z_steps_per_meter)); }
+      set_pos_single_(stepper_z, (int32_t)((k_z_calibration_pos - pos) * k_z_steps_per_meter)); }
 
   private:
 

@@ -14,14 +14,6 @@ static constexpr int k_switch_pin_1 = 14;
 static constexpr int k_switch_pin_2 = 10;
 static constexpr int k_switch_pin_z = 11;
 
-static constexpr float k_joint_calibration_velocity = k_pi / 2.0f; // rad per s
-static constexpr float k_z_calibration_velocity = 0.05f; // meters per s
-
-// Calibration values
-static constexpr float k_j1_calibration_pos = -0.2617f;
-static constexpr float k_j2_calibration_pos = k_pi + 0.2617f;
-static constexpr float k_z_calibration_pos = 0.272f;
-
 // Home position
 const Setpoint home = Setpoint(0.5f * k_pi, 1.5f * k_pi, 0.15f);
 
@@ -39,7 +31,6 @@ void calibrate() {
   // Initialize the gripper
   gripper.begin();
 
-  Serial.println("Rotating linear stage!");
   // Calibrate linear stage
   pantograph.rotate(
     0.0f,
@@ -74,6 +65,7 @@ void calibrate() {
   delete setpoint;
   setpoint = new Setpoint(home);
 
+  pantograph.move(setpoint);
   return;
 }
 
@@ -89,7 +81,6 @@ void deactivate() {};
  */
 inline Error parse_serial(const char * message)
 {
-  Serial.println("Parsing serial");
   if (std::strncmp(message, "ACTIVATE", 8) == 0) {
     calibrate();
     calibrated = true;
