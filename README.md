@@ -4,8 +4,8 @@ This repository contains firmware and host-side tests for a Teensy 4.0 based mot
 controller. The system:
 
 - Receives motion and gripper setpoints over a serial interface.
-- Executes those setpoints in a near-realtime control loop.
-- Drives two rotary joints and one linear stage.
+- Executes those setpoints in a synchronized manner
+- Drives two rotary joints and one linear stage
 - Reports status and error responses back over serial.
 
 The current firmware entry point is
@@ -15,14 +15,9 @@ The current firmware entry point is
 
 ### Runtime flow
 
-1. `setup()` initializes serial, joints, and the gripper servo.
-2. `loop()` checks for serial input, parses commands, and runs the active control
-   callback every iteration.
-3. The active callback is stored in `State::callback` and transitions between
-   inactive, calibration, and active control behaviors.
-4. Motion execution happens by repeatedly calling:
-   - `Joint::pulse_if_required(...)` for the rotary axes.
-   - `Stage::pulse_if_required(...)` for the linear axis.
+1. `setup()` initializes serial and the stepper system
+2. `loop()` checks for serial input, parses commands, and runs the neccessary open loop control command
+3. Simultaneous motion is executed using the TeensyStep4 library
 
 ### Serial commands
 
@@ -32,18 +27,9 @@ The firmware currently recognizes commands such as:
 - `DEACTIVATE`
 - `GRIPPER OPEN`
 - `GRIPPER CLOSE`
+- `GRIPPER LID`
+- `GRIPPER DISH`
 - `SETPOINT <q1> <q2> <z>`
 
 Serial parsing and response handling live in
 [`src/main.cpp`](/home/dmalexa5/callus-transfer-group-c/teensy_control/src/main.cpp).
-
-## Repository Map
-
-- [`src/main.cpp`](/home/dmalexa5/callus-transfer-group-c/teensy_control/src/main.cpp): Teensy firmware entry point, serial protocol handling, lifecycle transitions, and top-level control loop.
-- [`lib/control/joint.hpp`](/home/dmalexa5/callus-transfer-group-c/teensy_control/lib/control/joint.hpp): Rotary joint control logic using encoder feedback and pulse timing.
-- [`lib/control/stage.hpp`](/home/dmalexa5/callus-transfer-group-c/teensy_control/lib/control/stage.hpp): Linear stage pulse generation and position tracking.
-- [`lib/control/lifecycle.hpp`](/home/dmalexa5/callus-transfer-group-c/teensy_control/lib/control/lifecycle.hpp): Shared state, status/error enums, setpoint model, and serial response strings.
-- [`lib/interfaces/`](/home/dmalexa5/callus-transfer-group-c/teensy_control/lib/interfaces): Hardware abstraction interfaces for clock, encoder, and stepper implementations.
-- [`lib/hardware/`](/home/dmalexa5/callus-transfer-group-c/teensy_control/lib/hardware): Concrete Teensy/Arduino-facing hardware adapters.
-- [`test/`](/home/dmalexa5/callus-transfer-group-c/teensy_control/test): Native GoogleTest coverage for control logic.
-- [`platformio.ini`](/home/dmalexa5/callus-transfer-group-c/teensy_control/platformio.ini): PlatformIO environments for native tests and Teensy firmware builds.
