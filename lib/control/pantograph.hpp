@@ -21,13 +21,13 @@ static constexpr float k_pi =  3.14159265359f;
 static constexpr float k_gear_ratio = 5.0f;
 static constexpr float k_joint_steps_per_rev = 800.0f * k_gear_ratio;
 static constexpr float k_joint_steps_per_rad = k_joint_steps_per_rev / (2.0f*k_pi);
-static constexpr float k_z_steps_per_rev = 800.0f;
+static constexpr float k_z_steps_per_rev = 400.0f;
 static constexpr float k_z_meters_per_rev = 0.004f;
 static constexpr float k_z_steps_per_meter = k_z_steps_per_rev / k_z_meters_per_rev;
 
 // Motion limiting constants
 static constexpr float k_joint_velocity = 3.0f * k_pi / 4.0f; // rad per second
-static constexpr float k_joint_acceleration = k_pi; // rad per second^2
+static constexpr float k_joint_acceleration = 3.0f*k_pi; // rad per second^2
 static constexpr float k_z_velocity = 0.05f; // meters per second
 static constexpr float k_z_acceleration = 0.1f; // meters per second^2
 

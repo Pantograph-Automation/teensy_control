@@ -39,6 +39,7 @@ void calibrate() {
   // Initialize the gripper
   gripper.begin();
 
+  Serial.println("Rotating linear stage!");
   // Calibrate linear stage
   pantograph.rotate(
     0.0f,
@@ -88,6 +89,7 @@ void deactivate() {};
  */
 inline Error parse_serial(const char * message)
 {
+  Serial.println("Parsing serial");
   if (std::strncmp(message, "ACTIVATE", 8) == 0) {
     calibrate();
     calibrated = true;
