@@ -39,16 +39,16 @@ static constexpr int32_t k_z_step_accel = k_z_acceleration * k_z_steps_per_meter
 
 using namespace TS4;
 
-/** @brief The full system controlled by the Teensy 4 */
+/** @brief The full Pantograph controlled by the Teensy 4 */
 
-class System {
+class Pantograph {
   public:
 
-    System() 
+    Pantograph() 
     : stepper_1(k_step_pin_1, k_dir_pin_1),
       stepper_2(k_step_pin_2, k_dir_pin_2),
       stepper_z(k_step_pin_z, k_dir_pin_z),
-      joint_group({stepper_1, stepper_2, stepper_z}) {};
+      joint_group({stepper_1, stepper_2}) {};
 
 
     /**
@@ -59,11 +59,11 @@ class System {
 
       stepper_1
         .setMaxSpeed(k_joint_step_speed)
-        .setAcceleration(k_joint_acceleration);
+        .setAcceleration(k_joint_step_accel);
 
       stepper_2
         .setMaxSpeed(k_joint_step_speed)
-        .setAcceleration(k_joint_acceleration);
+        .setAcceleration(k_joint_step_accel);
       
       stepper_z
         .setMaxSpeed(k_z_step_speed)
@@ -109,7 +109,7 @@ class System {
     };
 
     /**
-     * @brief Whether or not the system has reached its setpoint
+     * @brief Whether or not the Pantograph has reached its setpoint
      * @returns false if any motor is moving, otherwise true
      */
     inline bool is_moving() {
@@ -147,17 +147,17 @@ class System {
      * @param stepper The stepper to rotate
      * @param velocity Target velocity for the stepper (steps per sec)
      */
-    inline void rotate_async_single_(Stepper stepper, int32_t velocity) {
+    inline void rotate_async_single_(Stepper& stepper, int32_t velocity) {
       stepper.rotateAsync(velocity);
     }
 
     /** @brief Stops active asynch rotation */
-    inline void stop_async_single_(Stepper stepper) {
+    inline void stop_async_single_(Stepper& stepper) {
       stepper.stopAsync();
     }
 
     /** @brief Sets a single stepper position */
-    inline void set_pos_single_(Stepper stepper, int32_t pos) {
+    inline void set_pos_single_(Stepper& stepper, int32_t pos) {
       stepper.setPosition(pos);
     }
 
