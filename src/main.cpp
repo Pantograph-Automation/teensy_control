@@ -4,7 +4,7 @@
 
 #include "Arduino.h"
 #include "lifecycle.hpp"
-#include "system.hpp"
+#include "pantograph.hpp"
 #include "gripper.hpp"
 #include <cstring>
 #include <cstdio>
@@ -25,13 +25,13 @@ static constexpr float k_z_calibration_pos = 0.272f;
 // Home position
 const Setpoint home = Setpoint(0.5f * k_pi, 1.5f * k_pi, 0.15f);
 
-System system;
+Pantograph pantograph;
 Setpoint* setpoint = nullptr;
 Gripper gripper;
 bool calibrated = false;
 
 /**
- * @brief Calibrates the system
+ * @brief Calibrates the pantograph
  * @warning This is a blocking function!!
  */
 void calibrate() {
@@ -40,34 +40,34 @@ void calibrate() {
   gripper.begin();
 
   // Calibrate linear stage
-  system.rotate(
+  pantograph.rotate(
     0.0f,
     0.0f,
     k_z_calibration_velocity
   );
   while(digitalRead(k_switch_pin_z) != HIGH);
-  system.stop();
-  system.set_pos_z(k_z_calibration_pos);
+  pantograph.stop();
+  pantograph.set_pos_z(k_z_calibration_pos);
 
   // Calibrate joint 1
-  system.rotate(
+  pantograph.rotate(
     -k_joint_calibration_velocity,
     -k_joint_calibration_velocity,
     0.0f
   );
   while(digitalRead(k_switch_pin_1) != HIGH);
-  system.stop();
-  system.set_pos_j1(k_j1_calibration_pos);
+  pantograph.stop();
+  pantograph.set_pos_j1(k_j1_calibration_pos);
 
   // Calibrate joint 1
-  system.rotate(
+  pantograph.rotate(
     k_joint_calibration_velocity,
     k_joint_calibration_velocity,
     0.0f
   );
   while(digitalRead(k_switch_pin_2) != HIGH);
-  system.stop();
-  system.set_pos_j2(k_j2_calibration_pos);
+  pantograph.stop();
+  pantograph.set_pos_j2(k_j2_calibration_pos);
 
   // Set home setpoint
   delete setpoint;
@@ -77,7 +77,7 @@ void calibrate() {
 }
 
 /**
- * @brief Deactivates the system
+ * @brief Deactivates the pantograph
  * @details Placeholder for now
  */
 void deactivate() {};
@@ -133,7 +133,7 @@ inline Error parse_serial(const char * message)
     float z;
     if (std::sscanf(message, "SETPOINT %f %f %f", &q1, &q2, &z) == 3) {
       setpoint = new Setpoint(q1, q2, z);
-      system.move(setpoint);
+      pantograph.move(setpoint);
       return Error::OK;
     }
     return Error::INVALID_SETPOINT;
@@ -165,10 +165,13 @@ void setup()
 {
 
   Serial.begin(k_serial_baud_rate);
+  
+  pinMode(k_switch_pin_1, INPUT_PULLUP);
+  pinMode(k_switch_pin_2, INPUT_PULLUP);
+  pinMode(k_switch_pin_z, INPUT_PULLUP);
+  pantograph.begin();
+
   while(!Serial);
-
-  system.begin();
-
 }
 
 void loop()
