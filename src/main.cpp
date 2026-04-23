@@ -113,6 +113,18 @@ inline Error parse_serial(const char * message)
     return Error::OK;
   }
 
+  if (std::strncmp(message, "GRIPPER LID", 11) == 0) {
+    if (!calibrated) { return Error::INVALID_TRANSITION; }
+    gripper.grip(Gripper::Width::LID);
+    return Error::OK;
+  }
+
+  if (std::strncmp(message, "GRIPPER DISH", 12) == 0) {
+    if (!calibrated) { return Error::INVALID_TRANSITION; }
+    gripper.grip(Gripper::Width::DISH);
+    return Error::OK;
+  }
+
   if (std::strncmp(message, "SETPOINT", 8) == 0) {
     if (!calibrated) { return Error::INVALID_TRANSITION; }
 
