@@ -22,9 +22,6 @@ The current firmware entry point is
    callback every iteration.
 3. The active callback is stored in `State::callback` and transitions between
    inactive, calibration, and active control behaviors.
-4. Motion execution happens by repeatedly calling:
-   - `Joint::pulse_if_required(...)` for the rotary axes.
-   - `Stage::pulse_if_required(...)` for the linear axis.
 
 ### Serial commands
 
@@ -99,14 +96,12 @@ incrementally without causing unrelated formatting churn.
 
 ## Build and Test
 
-Do not attempt to build and test. Instead, provide reccomendations for immediate next steps for building and testing.
+Do not design, plan, build, or run tests. This is a prototyping projecto ONLY. Instead, provide reccomendations for immediate next steps for building and testing.
 
-The `native` environment uses GoogleTest for host-side validation. The `teensy40`
-environment builds the Arduino/Teensy firmware.
+The `teensy40` environment builds the Arduino/Teensy firmware.
 
 ## Expectations for Future Agents
 
-- Preserve the serial-setpoint to control-loop responsibility of this repository.
 - Favor changes that improve determinism, safety, and testability.
 - Verify behavior with native tests when logic changes are made.
 - Keep docs and comments aligned with the actual serial protocol and lifecycle
