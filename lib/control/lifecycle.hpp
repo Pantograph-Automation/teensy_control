@@ -1,15 +1,10 @@
 #pragma once
+#if defined(ARDUINO)
+#include "Arduino.h"
 
 constexpr unsigned long k_serial_baud_rate = 115200UL;
 
-enum class Status
-{
-  ERROR,
-  ACTIVE,
-  COMPLETE
-};
-using StatusCallback = Status (*)();
-
+/** @brief Error state of the overall system */
 enum class Error
 {
   OK,
@@ -19,66 +14,30 @@ enum class Error
   INVALID_TRANSITION
 };
 
-
+/** @brief The currently tracked setpoint read fromt the serial interface */
 struct Setpoint
 {
   Setpoint(
     float q1,
     float q2,
-    float z,
-    float tolerance,
-    float velocity
-  ) : q1(q1), q2(q2), z(z), tolerance(tolerance), velocity(velocity) {};
+    float z
+  ) : q1(q1), q2(q2), z(z) {};
 
+  /** @brief Joint 1 position */
   float q1;
+
+  /** @brief Joint 2 position */
   float q2;
+
+  /** @brief Z stage position */
   float z;
-  float tolerance;
-  float velocity;
 };
 
-class State
-{
-  public:
-    State() {};
-
-    /** @brief The currently active control loop callback */
-    StatusCallback callback = []() { return Status::ERROR; };
-
-    /** @brief The currently active system setpoint */
-    Setpoint* setpoint = nullptr;
-
-    /** @brief The currently active error, if any */
-    Error error = Error::OK;
-
-    /** @brief Whether or not a response is due to the serial interface */
-    bool response_due = false;
-
-    /** @brief The status payload to send when the current command succeeds */
-    Status pending_status = Status::COMPLETE;
-
-    inline void reset(StatusCallback callback) {
-      delete setpoint;
-      setpoint = nullptr;
-      error = Error::OK;
-      response_due = false;
-      pending_status = Status::COMPLETE;
-      this->callback = callback;
-    }
-
-    inline void replace_setpoint(
-      const float q1,
-      const float q2,
-      const float z,
-      const float tolerance,
-      const float velocity)
-    {
-      delete setpoint;
-      setpoint = new Setpoint(q1, q2, z, tolerance, velocity);
-    }
-};
-
-inline const char* processError(Error error)
+/**
+ * @brief Process an error into a serial string
+ * @param error The error to process
+ */
+inline const char* process_error(Error error)
 {
   switch (error)
   {
@@ -95,16 +54,18 @@ inline const char* processError(Error error)
   }
 }
 
-inline const char* processStatus(Status status) {
-  switch (status)
-  {
-    case Status::ACTIVE:
-      return "ACTIVE";
-    case Status::COMPLETE:
-      return "COMPLETE";
-    case Status::ERROR:
-      return "ERROR Received status in error state";
-    default:
-      return "ERROR Unknown status";
+/**
+ * @brief Responds to the serial interface
+ * @details Only called once motion is completed, so returns COMPLETE by default
+ */
+inline void respond_serial(Error error)
+{
+  if (error == Error::OK) {
+    Serial.println("COMPLETE");
+    return;
   }
+
+  Serial.println(process_error(error));
 }
+
+#endif
