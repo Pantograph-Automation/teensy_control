@@ -23,13 +23,13 @@ struct Setpoint
     float z
   ) : q1(q1), q2(q2), z(z) {};
 
-  /** @brief Joint 1 position */
+  /** @brief Joint 1 position (rad) */
   float q1;
 
-  /** @brief Joint 2 position */
+  /** @brief Joint 2 position (rad) */
   float q2;
 
-  /** @brief Z stage position */
+  /** @brief Z stage position (meters) */
   float z;
 };
 

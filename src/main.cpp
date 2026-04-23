@@ -9,6 +9,22 @@
 #include <cstring>
 #include <cstdio>
 
+// Limit switch pins
+static constexpr int k_switch_pin_1 = 14;
+static constexpr int k_switch_pin_2 = 10;
+static constexpr int k_switch_pin_z = 11;
+
+static constexpr float k_joint_calibration_velocity = k_pi / 2.0f; // rad per s
+static constexpr float k_z_calibration_velocity = 0.05f; // meters per s
+
+// Calibration values
+static constexpr float k_j1_calibration_pos = -0.2617f;
+static constexpr float k_j2_calibration_pos = k_pi + 0.2617f;
+static constexpr float k_z_calibration_pos = 0.272f;
+
+// Home position
+const Setpoint home = Setpoint(0.5f * k_pi, 1.5f * k_pi, 0.15f);
+
 System system;
 Setpoint* setpoint = nullptr;
 Gripper gripper;
@@ -20,43 +36,42 @@ bool calibrated = false;
  */
 void calibrate() {
 
-  // gripper.begin();
+  // Initialize the gripper
+  gripper.begin();
 
-  // unsigned long k_calibration_delay = 800UL;
-  // unsigned long k_z_calibration_delay = 800UL;
+  // Calibrate linear stage
+  system.rotate(
+    0.0f,
+    0.0f,
+    k_z_calibration_velocity
+  );
+  while(digitalRead(k_switch_pin_z) != HIGH);
+  system.stop();
+  system.set_pos_z(k_z_calibration_pos);
 
-  // // Calibrate linear stage
-  // while(digitalRead(11) != HIGH) {
-  //   linear_stage.pulse_up_once();
-  //   hw_clock.sleep(k_z_calibration_delay);
-  // }
-  // linear_stage.bad_calibrate(0.272);
+  // Calibrate joint 1
+  system.rotate(
+    -k_joint_calibration_velocity,
+    -k_joint_calibration_velocity,
+    0.0f
+  );
+  while(digitalRead(k_switch_pin_1) != HIGH);
+  system.stop();
+  system.set_pos_j1(k_j1_calibration_pos);
 
-  // // Calibrate joint 1
-  // hw_stepper1.set_direction_backward();
-  // hw_stepper2.set_direction_backward();
-  // while(digitalRead(14) != HIGH) {
-  //   joint1.pulse_once();
-  //   joint2.pulse_once();
-  //   hw_clock.sleep(k_calibration_delay);
-  // }
-  // joint1.calibrate(-1, -0.2617);
-  // hw_clock.sleep(10000UL);
+  // Calibrate joint 1
+  system.rotate(
+    k_joint_calibration_velocity,
+    k_joint_calibration_velocity,
+    0.0f
+  );
+  while(digitalRead(k_switch_pin_2) != HIGH);
+  system.stop();
+  system.set_pos_j2(k_j2_calibration_pos);
 
-  // // Calibrate joint 2
-  // hw_stepper1.set_direction_forward();
-  // hw_stepper2.set_direction_forward();
-  // while(digitalRead(10) != HIGH) {
-  //   joint1.pulse_once();
-  //   joint2.pulse_once();
-  //   hw_clock.sleep(k_calibration_delay);
-  // }
-  // float joint2_pos = k_pi + 0.2617;
-  // joint2.calibrate(3, joint2_pos);
-  // hw_clock.sleep(10000UL);
-
-  // // Set home setpoint
-  // replace_setpoint(HOME_J1, HOME_J2, HOME_Z, k_tolerance, k_joint_velocity);
+  // Set home setpoint
+  delete setpoint;
+  setpoint = new Setpoint(home);
 
   return;
 }

@@ -91,9 +91,9 @@ class System {
 
     /** 
      * @brief Move joints at some velocity
-     * @param v1 Joint 1 velocity
-     * @param v2 Joint 2 velocity
-     * @param vz Z stage velocity
+     * @param v1 Joint 1 velocity (rad / s)
+     * @param v2 Joint 2 velocity (rad / s)
+     * @param vz Z stage velocity (m / s)
      */
     inline void rotate(float v1, float v2, float vz) {
       if(v1 != 0.0f) { stepper_1.rotateAsync((int32_t)(v1 * k_joint_steps_per_rad)); }
@@ -115,6 +115,18 @@ class System {
     inline bool is_moving() {
       return (stepper_1.isMoving || stepper_2.isMoving || stepper_z.isMoving);
     }
+
+    /** @brief set stepper 1 position */
+    inline void set_pos_j1(float pos) { 
+      set_pos_single_(stepper_1, (int32_t)(pos * k_joint_steps_per_rad)); }
+
+    /** @brief set stepper 2 position */
+    inline void set_pos_j2(float pos) { 
+      set_pos_single_(stepper_2, (int32_t)(pos * k_joint_steps_per_rad)); }
+
+    /** @brief set stepper z position */
+    inline void set_pos_z(float pos) { 
+      set_pos_single_(stepper_z, (int32_t)(pos * k_z_steps_per_meter)); }
 
   private:
 
@@ -144,6 +156,10 @@ class System {
       stepper.stopAsync();
     }
 
+    /** @brief Sets a single stepper position */
+    inline void set_pos_single_(Stepper stepper, int32_t pos) {
+      stepper.setPosition(pos);
+    }
 
 };
 
