@@ -16,7 +16,7 @@ namespace TS4
     {
      public:
         std::string name;
-        bool isMoving = false;
+        volatile bool isMoving = false;
         void emergencyStop();
         void overrideSpeed(float factor);
 
@@ -51,7 +51,7 @@ namespace TS4
 
         const int stepPin, dirPin;
 
-        ITimer* stpTimer;
+        ITimer* stpTimer = nullptr;
         inline void stepISR();
         inline void rotISR();
         inline void resetISR();
@@ -60,7 +60,9 @@ namespace TS4
             target,
             rotate,
             stopping,
-        } mode = mode_t::target;
+        };
+
+        volatile mode_t mode = mode_t::target;
 
         // Bresenham:
         StepperBase* next = nullptr; // linked list of steppers, maintained from outside

@@ -107,6 +107,13 @@ namespace TS4
 
     void StepperBase::emergencyStop()
     {
+        if (stpTimer == nullptr)
+        {
+            isMoving = false;
+            v_sqr    = 0;
+            return;
+        }
+
         stpTimer->stop();
         TimerFactory::returnTimer(stpTimer);
         stpTimer = nullptr;

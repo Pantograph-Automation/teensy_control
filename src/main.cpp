@@ -15,7 +15,7 @@ static constexpr int k_switch_pin_2 = 10;
 static constexpr int k_switch_pin_z = 11;
 
 // Home position
-const Setpoint home = Setpoint(0.5f * k_pi, 1.5f * k_pi, 0.15f);
+const Setpoint home = Setpoint(k_home_1, k_home_2, k_home_z);
 
 Pantograph pantograph;
 Setpoint* setpoint = nullptr;
@@ -125,6 +125,7 @@ inline Error parse_serial(const char * message)
     float q2;
     float z;
     if (std::sscanf(message, "SETPOINT %f %f %f", &q1, &q2, &z) == 3) {
+      delete setpoint;
       setpoint = new Setpoint(q1, q2, z);
       pantograph.move(setpoint);
       return Error::OK;

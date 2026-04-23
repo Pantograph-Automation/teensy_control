@@ -29,7 +29,7 @@ static constexpr float k_z_steps_per_meter = k_z_steps_per_rev / k_z_meters_per_
 static constexpr float k_joint_velocity = 1.25f * k_pi; // rad per second
 static constexpr float k_joint_acceleration = 3.0f*k_pi; // rad per second^2
 static constexpr float k_z_velocity = 0.05f; // meters per second
-static constexpr float k_z_acceleration = 0.1f; // meters per second^2
+static constexpr float k_z_acceleration = 1.0f; // meters per second^2
 
 // Step limiting constants
 static constexpr int32_t k_joint_step_speed = k_joint_velocity * k_joint_steps_per_rad; // steps per second
@@ -55,7 +55,7 @@ class Pantograph {
     : stepper_1(k_step_pin_1, k_dir_pin_1),
       stepper_2(k_step_pin_2, k_dir_pin_2),
       stepper_z(k_step_pin_z, k_dir_pin_z),
-      joint_group({stepper_1, stepper_2}) {};
+      joint_group({stepper_1, stepper_2, stepper_z}) {};
 
 
     /**
@@ -82,18 +82,19 @@ class Pantograph {
      * @param setpoint The setpoint to track
      */
     inline void move(Setpoint* setpoint) {
-      
+    
+      stop();
+
       stepper_1.setTargetAbs(
         (int32_t)((k_j1_calibration_pos - setpoint->q1) * k_joint_steps_per_rad));
 
       stepper_2.setTargetAbs(
-        (int32_t)((k_j2_calibration_pos -setpoint->q2) * k_joint_steps_per_rad));
-      
+        (int32_t)((k_j2_calibration_pos - setpoint->q2) * k_joint_steps_per_rad));
+        
       stepper_z.setTargetAbs(
-        (int32_t)((k_z_calibration_pos -setpoint->z) * k_z_steps_per_meter));
-
-      joint_group.startMove();
-      stepper_z.moveAsync();
+        (int32_t)((k_z_calibration_pos - setpoint->z) * k_z_steps_per_meter));
+    
+      joint_group.move();
     }
 
     /** 
@@ -110,9 +111,9 @@ class Pantograph {
 
     /** @brief Stops any active motion */
     inline void stop() {
-      stepper_1.stopAsync();
-      stepper_2.stopAsync();
-      stepper_z.stopAsync();
+      stepper_1.emergencyStop();
+      stepper_2.emergencyStop();
+      stepper_z.emergencyStop();
     };
 
     /**

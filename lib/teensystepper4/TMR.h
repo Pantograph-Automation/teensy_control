@@ -175,7 +175,7 @@ namespace TS4
 
         static_assert(moduleNr < 4, "Wrong TMR module number");
         static constexpr uintptr_t tmrAddresses[]{IMXRT_TMR1_ADDRESS, IMXRT_TMR2_ADDRESS, IMXRT_TMR3_ADDRESS, IMXRT_TMR4_ADDRESS};
-        static bool isFree[4];
+        static volatile bool isFree[4];
         static constexpr IRQ_NUMBER_t tmrIRQs[]{IRQ_QTIMER1, IRQ_QTIMER2, IRQ_QTIMER3, IRQ_QTIMER4};
         static IMXRT_TMR_t* const regs;
     };
@@ -257,7 +257,7 @@ namespace TS4
     IMXRT_TMR_t* const TMRModule<modNr>::regs = ((IMXRT_TMR_t*)(tmrAddresses[modNr])); // pointer to the TMRn register block
 
     template <unsigned modNr>
-    bool TMRModule<modNr>::isFree[4]{true, true, true, true}; // housekeeping of free channels
+    volatile bool TMRModule<modNr>::isFree[4]{true, true, true, true}; // housekeeping of free channels
 
     template <unsigned modNr>
     TmrTimer* TMRModule<modNr>::channels[4]{
