@@ -29,7 +29,7 @@ static constexpr float k_z_steps_per_meter = k_z_steps_per_rev / k_z_meters_per_
 static constexpr float k_joint_velocity = 1.25f * k_pi; // rad per second
 static constexpr float k_joint_acceleration = 3.0f*k_pi; // rad per second^2
 static constexpr float k_z_velocity = 0.05f; // meters per second
-static constexpr float k_z_acceleration = 1.0f; // meters per second^2
+static constexpr float k_z_acceleration = 0.8f; // meters per second^2
 
 // Step limiting constants
 static constexpr int32_t k_joint_step_speed = k_joint_velocity * k_joint_steps_per_rad; // steps per second
@@ -38,8 +38,8 @@ static constexpr int32_t k_z_step_speed = k_z_velocity * k_z_steps_per_meter; //
 static constexpr int32_t k_z_step_accel = k_z_acceleration * k_z_steps_per_meter; // meters per second^2
 
 // Calibration values
-static constexpr float k_joint_calibration_velocity = k_pi / 4.0f; // rad per s
-static constexpr float k_z_calibration_velocity = 0.02f; // meters per s
+static constexpr float k_joint_calibration_velocity = k_pi / 8.0f; // rad per s
+static constexpr float k_z_calibration_velocity = 0.015f; // meters per s
 static constexpr float k_j1_calibration_pos = -0.2617f;
 static constexpr float k_j2_calibration_pos = k_pi + 0.2617f;
 static constexpr float k_z_calibration_pos = 0.272f;
