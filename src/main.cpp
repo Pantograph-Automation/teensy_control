@@ -4,148 +4,176 @@
 
 #include "Arduino.h"
 #include "lifecycle.hpp"
-#include "clock.hpp"
-#include "encoder.hpp"
-#include "stepper.hpp"
-#include "joint.hpp"
+#include "pantograph.hpp"
+#include "gripper.hpp"
+#include <cstring>
+#include <cstdio>
 
-#define TOLERANCE 0.005f
-#define JOINT_VEL 5.0f
+// Limit switch pins
+static constexpr int k_switch_pin_1 = 14;
+static constexpr int k_switch_pin_2 = 10;
+static constexpr int k_switch_pin_z = 11;
 
-#define PULSE1 4
-#define DIR1 5
-#define HOME_J1 2.08
-Clock hw_clock;
+// Home position
+const Setpoint home = Setpoint(k_home_1, k_home_2, k_home_z);
 
-Encoder hw_encoder1(&Wire);
-Stepper hw_stepper1(PULSE1, DIR1);
-Joint joint1(&hw_stepper1, &hw_encoder1, &hw_clock);
+Pantograph pantograph;
+Setpoint* setpoint = nullptr;
+Gripper gripper;
+bool calibrated = false;
 
-#define PULSE2 22 // 2 IS PULSE LINEAR RAIL
-#define DIR2 21 // 3 IS DIR LINEAR RAIL
-#define HOME_J2 1.10f
-Encoder hw_encoder2(&Wire1);
-Stepper hw_stepper2(PULSE2, DIR2);
-Joint joint2(&hw_stepper2, &hw_encoder2, &hw_clock);
+/**
+ * @brief Calibrates the pantograph
+ * @warning This is a blocking function!!
+ */
+void calibrate() {
 
-State state;
+  // Initialize the gripper
+  gripper.begin();
 
-Status activeControl() {
-  
-  joint1.pulse_if_required(state.setpoint->q1, state.setpoint->tolerance, state.setpoint->velocity);
-  joint2.pulse_if_required(state.setpoint->q2, state.setpoint->tolerance, state.setpoint->velocity);
+  // Calibrate linear stage
+  pantograph.rotate(
+    0.0f,
+    0.0f,
+    k_z_calibration_velocity
+  );
+  while(digitalRead(k_switch_pin_z) != HIGH);
+  pantograph.stop();
+  pantograph.set_pos_z(k_z_calibration_pos);
 
-  return Status::ACTIVE;
+  // Calibrate joint 1
+  pantograph.rotate(
+    -k_joint_calibration_velocity,
+    -k_joint_calibration_velocity,
+    0.0f
+  );
+  while(digitalRead(k_switch_pin_1) != HIGH);
+  pantograph.stop();
+  pantograph.set_pos_j1(k_j1_calibration_pos);
+
+  // Calibrate joint 1
+  pantograph.rotate(
+    k_joint_calibration_velocity,
+    k_joint_calibration_velocity,
+    0.0f
+  );
+  while(digitalRead(k_switch_pin_2) != HIGH);
+  pantograph.stop();
+  pantograph.set_pos_j2(k_j2_calibration_pos);
+
+  // Set home setpoint
+  delete setpoint;
+  setpoint = new Setpoint(home);
+
+  pantograph.move(setpoint);
+  return;
 }
 
-Status calibrateControl() {
-  joint1.bad_calibrate();
-  joint2.bad_calibrate();
-  delete state.setpoint;
-  state.setpoint = new Setpoint(HOME_J1, HOME_J2, TOLERANCE, JOINT_VEL);
-  state.callback = activeControl;
-  return Status::COMPLETE;
-}
-
-Status inactiveControl() {
-  return Status::COMPLETE;
-}
+/**
+ * @brief Deactivates the pantograph
+ * @details Placeholder for now
+ */
+void deactivate() {};
 
 /**
  * @brief Parse an incoming serial message
- * @param message The incoming char buffer
+ * @param message The incoming message to parse
  */
-Error parseSerial(const char* message)
+inline Error parse_serial(const char * message)
 {
-
-  if (strncmp(message, "ACTIVATE", 8) == 0) {
-    state.reset(calibrateControl);
+  if (std::strncmp(message, "ACTIVATE", 8) == 0) {
+    calibrate();
+    calibrated = true;
     return Error::OK;
   }
 
-  if (strncmp(message, "DEACTIVATE", 10) == 0) {
-    state.reset(inactiveControl);
+  if (std::strncmp(message, "DEACTIVATE", 10) == 0) {
+    delete setpoint;
+    deactivate();
+    calibrated = false;
     return Error::OK;
   }
 
-  if (strncmp(message, "SETPOINT", 8) == 0) {
+  if (std::strncmp(message, "GRIPPER OPEN", 12) == 0) {
+    if (!calibrated) { return Error::INVALID_TRANSITION; }
+    gripper.open();
+    return Error::OK;
+  }
 
-    if (state.callback == inactiveControl 
-     || state.callback == calibrateControl ) { return Error::INVALID_TRANSITION; }
+  if (std::strncmp(message, "GRIPPER CLOSE", 13) == 0) {
+    if (!calibrated) { return Error::INVALID_TRANSITION; }
+    gripper.grip(Gripper::Width::CLOSE);
+    return Error::OK;
+  }
 
-    float q1, q2;
-    if (sscanf(message, "SETPOINT %f %f", 
-      &q1, &q2) == 2) {
+  if (std::strncmp(message, "GRIPPER LID", 11) == 0) {
+    if (!calibrated) { return Error::INVALID_TRANSITION; }
+    gripper.grip(Gripper::Width::LID);
+    return Error::OK;
+  }
 
-        delete state.setpoint;
-        state.setpoint = new Setpoint(q1, q2, TOLERANCE, JOINT_VEL);
-        return Error::OK;
-    } else {
-      return Error::INVALID_SETPOINT;
+  if (std::strncmp(message, "GRIPPER DISH", 12) == 0) {
+    if (!calibrated) { return Error::INVALID_TRANSITION; }
+    gripper.grip(Gripper::Width::DISH);
+    return Error::OK;
+  }
+
+  if (std::strncmp(message, "SETPOINT", 8) == 0) {
+    if (!calibrated) { return Error::INVALID_TRANSITION; }
+
+    float q1;
+    float q2;
+    float z;
+    if (std::sscanf(message, "SETPOINT %f %f %f", &q1, &q2, &z) == 3) {
+      delete setpoint;
+      setpoint = new Setpoint(q1, q2, z);
+      pantograph.move(setpoint);
+      return Error::OK;
     }
+    return Error::INVALID_SETPOINT;
   }
-
   return Error::INVALID_SERIAL;
 }
 
-/**
- * @brief Get the serial buffer, assuming one is available
- */
-void getSerial()
+inline void get_serial()
 {
-  static char serial_buffer[64];
-  serial_buffer[0] = '\0';
-  int index = 0;
+  const int k_buffer_size = 64;
+  int serial_buffer_idx = 0;
+  char serial_buffer_[k_buffer_size];
 
   while (Serial.available() > 0) {
-    char incoming = Serial.read();
+    const char incoming = Serial.read();
 
-    if (incoming == '\n') { // Message is complete
-        serial_buffer[index] = '\0'; // Null-terminate the string
-        state.error = parseSerial(serial_buffer); 
-        index = 0; // Reset for next message
-    } 
-    else if (index < 63) { // Avoid buffer overflow
-        serial_buffer[index++] = incoming;
+    if (incoming == '\n') {
+      serial_buffer_[serial_buffer_idx] = '\0';
+      auto error = parse_serial(serial_buffer_);
+      respond_serial(error);
+      serial_buffer_idx = 0;
+    } else if (serial_buffer_idx < (k_buffer_size - 1)) {
+      serial_buffer_[serial_buffer_idx++] = incoming;
     }
-  }
-}
-
-/**
- * @brief Respond with the appropriate serial message
- */
-void respondSerial(Status status) {
-  if (state.error == Error::OK)
-  {
-    Serial.println(processStatus(status));
-  } else {
-    Serial.println(processError(state.error));
   }
 }
 
 void setup()
 {
-  Serial.begin(SERIAL_BAUD_RATE);
+
+  Serial.begin(k_serial_baud_rate);
+  
+  pinMode(k_switch_pin_1, INPUT_PULLUP);
+  pinMode(k_switch_pin_2, INPUT_PULLUP);
+  pinMode(k_switch_pin_z, INPUT_PULLUP);
+  pantograph.begin();
+
   while(!Serial);
-
-  joint1.begin();
-  joint2.begin();
-
 }
 
 void loop()
 {
+  // unsigned long start_time = micros();
+
   if (Serial.available()) {
-    getSerial();
-    state.response_due = true;
-  }
-
-  auto status = state.callback();
-    
-
-  if(state.response_due) {
-    respondSerial(status);
-    state.response_due = false;
+    get_serial();
   }
 
 }
