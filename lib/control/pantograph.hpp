@@ -26,10 +26,10 @@ static constexpr float k_z_meters_per_rev = 0.004f;
 static constexpr float k_z_steps_per_meter = k_z_steps_per_rev / k_z_meters_per_rev;
 
 // Motion limiting constants
-static constexpr float k_joint_velocity = 1.25f * k_pi; // rad per second
-static constexpr float k_joint_acceleration = 3.0f*k_pi; // rad per second^2
+static constexpr float k_joint_velocity = 2.0f * k_pi; // rad per second
+static constexpr float k_joint_acceleration = 10.0f*k_pi; // rad per second^2
 static constexpr float k_z_velocity = 0.05f; // meters per second
-static constexpr float k_z_acceleration = 0.8f; // meters per second^2
+static constexpr float k_z_acceleration = 1.0f; // meters per second^2
 
 // Step limiting constants
 static constexpr int32_t k_joint_step_speed = k_joint_velocity * k_joint_steps_per_rad; // steps per second
